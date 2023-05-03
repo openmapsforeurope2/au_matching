@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [{
+        "name": "(gdb) Pipe Launch",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "/usr/local/src/au_matching/bin/ome2_au_matchingd",
+        "cwd": "/usr/local/src/au_matching",
+        "args": ["--c", "/usr/local/src/au_matching/config/epg_parameters.ini", "--t", "administrative_unit_area_w", "--cc", "be"],
+        "stopAtEntry": true,
+        "environment": [{ "name": "config", "value": "Debug" }],
+        "externalConsole": true,
+        "sourceFileMap": {
+            "/usr/local/src/au_matching/src":"${workspaceRoot}/src",
+            "/usr/local/src/libepg/src":"${workspaceRoot}/../libepg/src",
+            "/usr/local/src/sd-socle/src":"${workspaceRoot}/../sd-socle/src",
+            "/usr/local/src/au_matching/include":"${workspaceRoot}/include",
+            "/usr/local/src/libepg/include":"${workspaceRoot}/../libepg/include",
+            "/usr/local/src/sd-socle/include":"${workspaceRoot}/../sd-socle/include"
+        },
+        "pipeTransport": {
+            "debuggerPath": "/usr/bin/gdb",
+            "pipeProgram": "docker",
+            "pipeArgs": ["exec", "-i", "au_matching_container", "sh", "-c"],
+            "pipeCwd": "${workspaceRoot}"
+        },
+        "MIMode": "gdb",
+        "setupCommands": [{
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+        }]
+    }, ]
+}
