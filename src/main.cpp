@@ -10,10 +10,12 @@
 #include <epg/log/EpgLogger.h>
 #include <epg/log/ShapeLogger.h>
 #include <epg/tools/TimeTools.h>
+#include <epg/tools/geometry/SegmentIndexedGeometry.h>
 #include <epg/sql/tools/numFeatures.h>
 #include <epg/params/EpgParameters.h>
 #include <epg/params/tools/loadParameters.h>
 #include <epg/sql/DataBaseManager.h>
+
 
 
 
@@ -95,20 +97,25 @@ int main(int argc, char *argv[])
         ign::feature::sql::FeatureStorePostgis* fsLandmask = context->getDataBaseManager().getFeatureStore(landmaskTableName, idName, geomName);
 		ign::feature::FeatureIteratorPtr itLandmask= fsLandmask->getFeatures(ign::feature::FeatureFilter("country = '"+countryCode+"'"));
 
-        ign::geometry::MultiLineString mlBoundary;
+        // ign::geometry::MultiLineString mlBoundary;
+        ign::geometry::MultiPolygon mpLandmask;
         while (itLandmask->hasNext())
 		{
             ign::feature::Feature const & fLandmask = itLandmask->next();
-			ign::geometry::MultiPolygon const & mpLandmask = fLandmask.getGeometry().asMultiPolygon();
-            for ( int i = 0 ; i < mpLandmask.numGeometries() ; ++i )
-            {
-                for ( int j = 0 ; j < mpLandmask.polygonN(i).numRings() ; ++j)
-                {
-                    mlBoundary.addGeometry(mpLandmask.polygonN(i).ringN(j));
-                }
-            }
+			mpLandmask = fLandmask.getGeometry().asMultiPolygon();
+
+            // epg::tools::geometry::SegmentIndexedGeometry indexedBoundaries(mpLandmask);
+            // for ( int i = 0 ; i < mpLandmask.numGeometries() ; ++i )
+            // {
+            //     for ( int j = 0 ; j < mpLandmask.polygonN(i).numRings() ; ++j)
+            //     {
+            //         mlBoundary.addGeometry(mpLandmask.polygonN(i).ringN(j));
+            //     }
+            // }
             break;
         }
+        const epg::tools::geometry::SegmentIndexedGeometryInterface* indexedBoundaries = new epg::tools::geometry::SegmentIndexedGeometry( &mpLandmask );
+
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(auTable, idName, geomName);
 		ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter());
@@ -143,9 +150,8 @@ int main(int argc, char *argv[])
 
                     for ( int k = 0 ; k < nbPoints ; ++k )
                     {
-                        if ( ring.pointN(k).distance(mlBoundary) < 0.1 ) {
-                            vIsBoundary[k] = true;
-                        }
+                        if ( indexedBoundaries->distance( ring.pointN(k), 0.1 ) < 0 ) continue;  
+                        vIsBoundary[k] = true;
                     }
 
                     std::vector < ign::geometry::Point > vContactPoints;
@@ -216,6 +222,8 @@ int main(int argc, char *argv[])
         }
         shapeLogger->closeShape( "not_boundaries" );
         shapeLogger->closeShape( "contact_points" );
+
+        delete indexedBoundaries;
     }
     catch( ign::Exception &e )
     {
