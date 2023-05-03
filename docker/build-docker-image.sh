@@ -18,7 +18,7 @@ GIT_BRANCH_LOWER=$(echo $GIT_BRANCH | tr '[:upper:]' '[:lower:]')
 
 DOCKER_TAG=$GIT_BRANCH_LOWER
 
-if [ $GIT_BRANCH = "master" ]
+if [ $GIT_BRANCH = "main" ]
 then
     DOCKER_TAG="latest"
 fi
