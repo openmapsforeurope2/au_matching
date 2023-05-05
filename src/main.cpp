@@ -21,7 +21,7 @@
 namespace po = boost::program_options;
 
 
-void extractNotTouchingParts(
+ void extractNotTouchingParts(
     const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
     const ign::geometry::LineString & ls, 
     std::vector<ign::geometry::LineString> & vNotTouchingParts,
@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
         shapeLogger->addShape( "resulting_polygons_not_modified", epg::log::ShapeLogger::POLYGON );
         shapeLogger->addShape( "path", epg::log::ShapeLogger::LINESTRING );
         shapeLogger->addShape( "point", epg::log::ShapeLogger::POINT );
+        shapeLogger->addShape( "boucle", epg::log::ShapeLogger::LINESTRING );
 
         epg::params::EpgParameters& epgParams = epg::ContextS::getInstance()->getEpgParameters();
 
@@ -281,8 +282,8 @@ int main(int argc, char *argv[])
 
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(auTable, idName, geomName);
-		ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter());
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid='90e9e088-50d5-4d4c-9521-89a904928703'"));
+		// ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter());
+        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid='379dab00-b6db-4f6c-a11e-a0f9ebbb170f'"));
 
         //patience
         int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter());
@@ -301,6 +302,10 @@ int main(int argc, char *argv[])
             for ( int i = 0 ; i < mpAu.numGeometries() ; ++i )
             {
                 ign::geometry::Polygon const & pAu = mpAu.polygonN(i);
+
+                if (pAu.intersects(ign::geometry::Point(3968611,3159435))){
+                    bool pouet = true;
+                }
                 
                 std::vector<ign::geometry::LineString> vRings;
                 for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
@@ -310,12 +315,23 @@ int main(int argc, char *argv[])
                     std::vector < ign::geometry::LineString > ringParts;
                     std::vector < ign::geometry::Point > vContactPoints;
                     extractNotTouchingParts( indexedBoundaries, ring, ringParts, &vContactPoints);
-                    if (!ringParts.empty()) {
-                        bIsModified = true;
-                    } else {
-                        vRings.push_back(ring);
+
+                    if (ringParts.empty()) {
+                        std::pair< bool, ign::geometry::LineString > foundPath = boundaryTool->getPathAlong( ring.startPoint(), ring.endPoint(), ring, 250./*maxDist*/, searchDistance, snapDistOnVertex);
+                        if (foundPath.first) {
+                            bIsModified = true;
+                            vRings.push_back(foundPath.second);
+
+                            ign::feature::Feature feature = fAu;
+                            feature.setGeometry( foundPath.second );
+                            shapeLogger->writeFeature( "boucle", feature );
+
+                        } else {
+                            vRings.push_back(ring);
+                        }
                         continue;
                     }
+                    bIsModified = true;
 
                     for ( int i = 0 ; i < ringParts.size() ; ++i )
                     {
@@ -449,6 +465,7 @@ int main(int argc, char *argv[])
         shapeLogger->closeShape( "resulting_polygons_not_valid" );
         shapeLogger->closeShape( "path" );
         shapeLogger->closeShape( "point" );
+        shapeLogger->closeShape( "boucle" );
 
         delete indexedBoundaries;
         delete indexedCoasts;
