@@ -167,11 +167,12 @@ namespace matching{
         ** On 
         *********************************************************************************************
         */
+       ign::geometry::MultiLineString mlsLandmaskCoastPath;
+        // NO DEBUG
         ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"' AND "+boundaryTypeName+" = '"+typeCostlineValue+"'"));
 
         // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
         _logger->log(epg::log::INFO, "[START] coast path computation: "+epg::tools::TimeTools::getTime());
-        ign::geometry::MultiLineString mlsLandmaskCoastPath;
         while (itCoast->hasNext())
         {
             ign::feature::Feature const& fCoast = itCoast->next();
@@ -199,6 +200,23 @@ namespace matching{
                 _shapeLogger->writeFeature( "coastline_path", f );
             }
         }
+        // NO DEBUG
+
+        // DEBUG
+        // ign::feature::FeatureIteratorPtr itDebug = _fsLandmask->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
+        // while (itDebug->hasNext())
+        // {
+        //     ign::feature::Feature const& featDebug = itDebug->next();
+        //     ign::geometry::MultiPolygon const& mpDebug = featDebug.getGeometry().asMultiPolygon();
+
+        //     for ( size_t i = 0 ; i < mpDebug.numGeometries() ; ++i) {
+        //         for (size_t j = 0 ; j < mpDebug.polygonN(i).numRings() ; ++j) {
+        //             mlsLandmaskCoastPath.addGeometry(mpDebug.polygonN(i).ringN(j));
+        //         }
+        //     }
+        // }
+        // DEBUG
+
         _logger->log(epg::log::INFO, "[END] coast path computation: "+epg::tools::TimeTools::getTime());
 
         /*
@@ -218,6 +236,7 @@ namespace matching{
         }
 
         _logger->log(epg::log::INFO, "[START] no coast computation: "+epg::tools::TimeTools::getTime());
+        // NO DEBUG
         const epg::tools::geometry::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new epg::tools::geometry::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
 
         std::vector<std::vector<std::vector<std::pair<int,int>>>> vLandmaskNoCoasts;
@@ -237,17 +256,20 @@ namespace matching{
             indexedLandmaskNoCoasts->addGeometry(&vLsLandmaskNoCoasts[i]);
         }
 
-        // epg::tools::geometry::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new epg::tools::geometry::SegmentIndexedGeometryCollection();
-        // indexedLandmaskNoCoasts->addGeometry(&mpLandmask);
-
-        _logger->log(epg::log::INFO, "[END] no coast computation: "+epg::tools::TimeTools::getTime());
-
         for ( int i = 0 ; i < vLsLandmaskNoCoasts.size() ; ++i )
         {
             ign::feature::Feature feature;
             feature.setGeometry( vLsLandmaskNoCoasts[i] );
             _shapeLogger->writeFeature( "boundary_not_touching_coast", feature );
         }
+        // NO DEBUG
+
+        // DEBUG
+        // epg::tools::geometry::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new epg::tools::geometry::SegmentIndexedGeometryCollection();
+        // indexedLandmaskNoCoasts->addGeometry(&mpLandmask);
+        // DEBUG
+
+        _logger->log(epg::log::INFO, "[END] no coast computation: "+epg::tools::TimeTools::getTime());
 
         /*
         *********************************************************************************************
@@ -258,7 +280,7 @@ namespace matching{
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
         ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('0d40d383-ebd2-4c61-a75f-9ac37ec23b95')"));
+        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('7e7a3bea-f567-4068-9d32-35709e6014cf')"));
 
         //patience
         int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
@@ -477,7 +499,7 @@ namespace matching{
         }
 
         delete indexedLandmaskNoCoasts;
-        // delete indexedLandmaskCoasts;
+        delete indexedLandmaskCoasts;
         
     };
 
@@ -511,7 +533,9 @@ namespace matching{
             ign::geometry::Point const& endPoint2 = bboxGeom.intersects(vSegments.back().startPoint())? vSegments.back().endPoint() : vSegments.back().startPoint();
 
             double angle = epg::tools::geometry::angle(endPoint1.toVec2d()-pt.toVec2d(), endPoint2.toVec2d()-pt.toVec2d());
-            if (abs(angle-M_PI)<0.052359878 /*3 degres*/) return 0;
+            //DEBUG
+            double angleTest = abs(angle-M_PI);
+            if (abs(angle-M_PI)<0.174532925 /*10 degres*/) return 0;
             return angle;
         }
         return 0;

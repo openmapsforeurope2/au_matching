@@ -41,7 +41,7 @@
         {
             "label": "run the code",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./bin/ome2_au_matching --c /usr/local/src/au_matching/data/config/epg_parameters.ini --t administrative_unit_area_w --cc fr",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./bin/ome2_au_matching --c /usr/local/src/au_matching/data/config/epg_parameters.ini --t administrative_unit_6_w --cc fr",
             "group": "build",
             "problemMatcher": []
         },
