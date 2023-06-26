@@ -16,7 +16,7 @@ RUN ls
 RUN git checkout $GIT_BRANCH
 
 RUN mkdir build-unix-release
-RUN cd build-unix-release && cmake .. -DCMAKE_INSTALL_PREFIX=$EPG_DIR_SRC -DCMAKE_BUILD_TYPE=Release && make -j$NB_PROC install
+RUN cd build-unix-release && cmake .. -DCMAKE_INSTALL_PREFIX=$APP_DIR_SRC -DCMAKE_BUILD_TYPE=Release && make -j$NB_PROC install
 RUN rm -r build-unix-release
 
 ENV PATH=$PATH:$APP_DIR_SRC/bin

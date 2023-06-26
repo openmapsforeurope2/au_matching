@@ -15,6 +15,7 @@ namespace params{
 	///
 	ThemeParameters::ThemeParameters()
 	{
+		_initParameter( BOUNDARY_TYPE_INLAND_WATER_BOUNDARY, "BOUNDARY_TYPE_INLAND_WATER_BOUNDARY" );
 		_initParameter( LANDMASK_TABLE, "LANDMASK_TABLE" );
 		_initParameter( AU_BOUNDARY_LOOP_MAX_DIST, "AU_BOUNDARY_LOOP_MAX_DIST" );
 		_initParameter( AU_BOUNDARY_LOOP_SEARCH_DIST, "AU_BOUNDARY_LOOP_SEARCH_DIST" );
