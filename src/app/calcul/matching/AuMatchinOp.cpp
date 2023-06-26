@@ -15,10 +15,12 @@
 #include <epg/params/EpgParameters.h>
 #include <epg/sql/tools/numFeatures.h>
 #include <epg/sql/DataBaseManager.h>
+#include <epg/tools/StringTools.h>
 #include <epg/tools/TimeTools.h>
 #include <epg/tools/geometry/project.h>
 #include <epg/tools/geometry/angle.h>
 #include <epg/tools/geometry/LineStringSplitter.h>
+#include <epg/tools/geometry/getArea.h>
 
 
 using namespace app::detail;
@@ -72,6 +74,7 @@ namespace matching{
         _shapeLogger->closeShape( "projected_point_on_sharp" );
         _shapeLogger->closeShape( "deleted_segments" );
         _shapeLogger->closeShape( "debug_segments" );
+        _shapeLogger->closeShape( "test" );
 
         epg::log::ShapeLoggerS::kill();
     }
@@ -127,6 +130,7 @@ namespace matching{
         _shapeLogger->addShape( "projected_point_on_sharp", epg::log::ShapeLogger::POINT );
         _shapeLogger->addShape( "deleted_segments", epg::log::ShapeLogger::POINT );
         _shapeLogger->addShape( "debug_segments", epg::log::ShapeLogger::LINESTRING );
+        _shapeLogger->addShape( "test", epg::log::ShapeLogger::LINESTRING );
 
         //--
         _logger->log(epg::log::INFO, "[END] initialization: "+epg::tools::TimeTools::getTime());
@@ -152,6 +156,7 @@ namespace matching{
         //app params
         params::ThemeParameters* themeParameters = params::ThemeParametersS::getInstance();
 
+        std::string const typeInlandValue = themeParameters->getValue( BOUNDARY_TYPE_INLAND_WATER_BOUNDARY ).toString();
         double const maxDist1 = themeParameters->getValue( AU_BOUNDARY_LOOP_MAX_DIST ).toDouble();
         double const searchDistance1 = themeParameters->getValue( AU_BOUNDARY_LOOP_SEARCH_DIST ).toDouble();
         double const snapDistOnVertex1 = themeParameters->getValue( AU_BOUNDARY_LOOP_SNAP_DIST ).toDouble();
@@ -167,21 +172,45 @@ namespace matching{
         ** On 
         *********************************************************************************************
         */
-       ign::geometry::MultiLineString mlsLandmaskCoastPath;
+        ign::geometry::MultiLineString mlsLandmaskCoastPath;
         // NO DEBUG
-        ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"' AND "+boundaryTypeName+" = '"+typeCostlineValue+"'"));
-
-        // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
-        _logger->log(epg::log::INFO, "[START] coast path computation: "+epg::tools::TimeTools::getTime());
+        ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
+        ign::geometry::algorithm::LineMergerOpGeos merger;
         while (itCoast->hasNext())
         {
             ign::feature::Feature const& fCoast = itCoast->next();
             ign::geometry::LineString const& lsCoast = fCoast.getGeometry().asLineString();
+            std::string icc = fCoast.getAttribute( countryCodeName ).toString();
+            std::string boundType = fCoast.getAttribute( boundaryTypeName ).toString();
 
+            if ( boundType.find("#") != std::string::npos ) {
+                std::vector<std::string> vBoundType;
+                epg::tools::StringTools::Split(boundType, "#", vBoundType);
+
+                std::vector<std::string> vCountry;
+                epg::tools::StringTools::Split(icc, "#", vCountry);
+
+                for ( size_t i = 0 ; i < vCountry.size() ; ++i ) {
+                    if ( i < vCountry.size() && vCountry[i] == _countryCode) {
+                        boundType = vBoundType[i];
+                        break;
+                    }
+                }
+                if(boundType != typeCostlineValue && boundType != typeInlandValue) continue;
+            }
+            merger.add(lsCoast);
+        }
+
+        std::vector< ign::geometry::LineString > vCoastLs = merger.getMergedLineStrings();
+
+        // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
+        _logger->log(epg::log::INFO, "[START] coast path computation: "+epg::tools::TimeTools::getTime());
+        for (size_t i = 0 ; i < vCoastLs.size() ; ++i)
+        {
             std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolLandmask->getPathAlong(
-                lsCoast.startPoint(),
-                lsCoast.endPoint(),
-                lsCoast,
+                vCoastLs[i].startPoint(),
+                vCoastLs[i].endPoint(),
+                vCoastLs[i],
                 maxDist3,
                 searchDistance3,
                 snapDistOnVertex3
@@ -189,15 +218,17 @@ namespace matching{
 
             if ( !pathFound.first )
             {
-                _shapeLogger->writeFeature( "coastline_path_not_found", fCoast );
+                ign::feature::Feature feat;
+                feat.setGeometry(vCoastLs[i]);
+                _shapeLogger->writeFeature( "coastline_path_not_found", feat );
             }
             else
             {
                 mlsLandmaskCoastPath.addGeometry(pathFound.second);
                 
-                ign::feature::Feature f = fCoast;
-                f.setGeometry(pathFound.second);
-                _shapeLogger->writeFeature( "coastline_path", f );
+                ign::feature::Feature feat;
+                feat.setGeometry(pathFound.second);
+                _shapeLogger->writeFeature( "coastline_path", feat );
             }
         }
         // NO DEBUG
@@ -279,8 +310,25 @@ namespace matching{
 
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
-        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('7e7a3bea-f567-4068-9d32-35709e6014cf')"));
+        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
+        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('9700daab-61ce-4fc4-90f1-66f9d17dc3c8')"));
+
+        // on indexe les contours frontière fermés 
+        ign::feature::FeatureIteratorPtr itBoundary = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
+        ign::geometry::algorithm::LineMergerOpGeos merger2;
+        while (itBoundary->hasNext()) {
+            ign::feature::Feature const& fBoundary = itBoundary->next();
+            ign::geometry::LineString const& lsBoundary = fBoundary.getGeometry().asLineString();
+            merger2.add(lsBoundary);
+        }
+        std::vector< ign::geometry::LineString > vMergedBoundaryLs = merger2.getMergedLineStrings();
+
+        ign::geometry::index::QuadTree< size_t > qTreeClosedBoundary;
+        for ( size_t i = 0 ; i < vMergedBoundaryLs.size() ; ++i ) {
+            if ( vMergedBoundaryLs[i].isClosed() ) {
+                qTreeClosedBoundary.insert( i, vMergedBoundaryLs[i].getEnvelope() );
+            }
+        }
 
         //patience
         int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
@@ -298,45 +346,29 @@ namespace matching{
             for ( int i = 0 ; i < mpAu.numGeometries() ; ++i )
             {
                 ign::geometry::Polygon const& pAu = mpAu.polygonN(i);
+                ign::geometry::LineString const& extRing = pAu.exteriorRing();
+
+                // contours de la nouvelle geometrie
+                std::vector<ign::geometry::LineString> vRings;
 
                 // if (pAu.intersects(ign::geometry::Point(3969637.78,3160444.92))){
                 //     bool pouet = true;
                 // }else {
                 //     continue;
                 // }
-                
-                std::vector<ign::geometry::LineString> vRings;
-                for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
-                {
-                    ign::geometry::LineString const& ring = pAu.ringN(j);
 
-                    // on extrait les partis de l'AU qui ne sont pas des frontieres
-                    std::vector<std::pair<int,int>> vpNotTouchingParts;
-                    std::vector<int> vTouchingPoints;
-                    _extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
 
-                    // on gere les boucles
-                    if (vpNotTouchingParts.empty()) {
-                        std::pair< bool, ign::geometry::LineString > foundPath = _mlsToolBoundary->getPathAlong( ring.startPoint(), ring.endPoint(), ring, maxDist1, searchDistance1, snapDistOnVertex1);
-                        if (foundPath.first) {
-                            bIsModified = true;
-                            vRings.push_back(foundPath.second);
+                // on extrait les partis du contour qui ne sont pas des frontieres
+                std::vector<std::pair<int,int>> vpNotTouchingParts;
+                std::vector<int> vTouchingPoints;
+                bool bAllIsTouching = _extractNotTouchingParts( indexedLandmaskNoCoasts, extRing, vpNotTouchingParts, &vTouchingPoints);
 
-                            ign::feature::Feature feature = fAu;
-                            feature.setGeometry( foundPath.second );
-                            _shapeLogger->writeFeature( "boucle", feature );
-                        } else {
-                            vRings.push_back(ring);
-                            // on projete les eventuels points de contact avec la frontiere
-                            _projectTouchingPoints(_mlsToolBoundary, vRings.back(), vTouchingPoints, searchDistance2, snapDistOnVertex2);
-                            if (vTouchingPoints.size() > 0) bIsModified = true;
-                        }
-                        continue;
-                    }
+                if (!vpNotTouchingParts.empty()) {
+                    // on calcul le nouveau contour ext
                     bIsModified = true;
-
+                    
                     // on projete les eventuels points de contact avec la frontiere
-                    ign::geometry::LineString ringWithContactPoints = ring;
+                    ign::geometry::LineString ringWithContactPoints = extRing;
                     _projectTouchingPoints(_mlsToolBoundary, ringWithContactPoints, vTouchingPoints, searchDistance2, snapDistOnVertex2);
 
                     std::vector<ign::geometry::LineString> vLsNotTouchingParts;
@@ -355,7 +387,7 @@ namespace matching{
                     }
                     for ( int i = 0 ; i < vTouchingPoints.size() ; ++i ) {
                         ign::feature::Feature feature = fAu;
-                        feature.setGeometry( ring.pointN(vTouchingPoints[i]) );
+                        feature.setGeometry( extRing.pointN(vTouchingPoints[i]) );
                         _shapeLogger->writeFeature( "contact_points", feature );
                     }
 
@@ -382,9 +414,7 @@ namespace matching{
                                 feature.setGeometry( vLsNotTouchingParts[i].pointN(1) );
                                 _shapeLogger->writeFeature( "deleted_segments", feature );
 
-                                vLsNotTouchingParts[i].removePointN(1);
-
-                                
+                                vLsNotTouchingParts[i].removePointN(1);   
                             }
                         }
                         if ( !vLsNotTouchingParts[i].endPoint().equals(vpStartEnd[i].second) && vLsNotTouchingParts[i].numPoints() > 2 ) {
@@ -462,8 +492,220 @@ namespace matching{
                         ign::feature::Feature feature = fAu;
                         feature.setGeometry( vLsNotTouchingParts[i] );
                         _shapeLogger->writeFeature( "not_boundaries_merged", feature );
-                    }    
+                    }
+                } else if (!bAllIsTouching) {
+                    // c est une boucle qui n est pas une frontiere
+
+                    ign::feature::Feature feature = fAu;
+                    feature.setGeometry( extRing );
+                    _shapeLogger->writeFeature( "test", feature );
+
+                    vRings.push_back(extRing);
+                    // on projete les eventuels points de contact avec la frontiere
+                    _projectTouchingPoints(_mlsToolBoundary, vRings.back(), vTouchingPoints, searchDistance2, snapDistOnVertex2);
+                    if (vTouchingPoints.size() > 0) bIsModified = true;
                 }
+
+                // on recupère tous les contours fermés : trous + contour ext si celui est une boucle frontiere (non traitee precedemment)
+                std::set< size_t > sClosedBoundary;
+			    qTreeClosedBoundary.query( extRing.getEnvelope(), sClosedBoundary );
+                std::set< size_t >::const_iterator sit;
+
+                ign::geometry::Polygon extRingPoly(extRing);
+                double areaExtRing = epg::tools::geometry::getArea( extRingPoly );
+                std::map< double, std::pair<bool, size_t> > mAreaRing;
+                for( sit = sClosedBoundary.begin() ; sit != sClosedBoundary.end() ; ++sit )
+                {
+                    ign::geometry::Polygon boundPoly(vMergedBoundaryLs[*sit]);
+                    ign::geometry::GeometryPtr result(extRingPoly.Intersection(boundPoly));
+                    double areaBoundaryRing = epg::tools::geometry::getArea(vMergedBoundaryLs[*sit]);
+                    bool isHole = areaBoundaryRing < 0 ? true : false;
+                    double areaInter = epg::tools::geometry::getArea( *result );
+                    
+                    if ( areaInter > 0.6*areaExtRing || areaInter > 0.6*abs(areaBoundaryRing) ) {
+                        mAreaRing.insert(std::make_pair(abs(areaBoundaryRing), std::make_pair(isHole, *sit)));
+                    }
+                }
+
+                std::map< double, std::pair<bool, size_t> >::const_reverse_iterator mit;
+                for (mit = mAreaRing.rbegin() ; mit != mAreaRing.rend() ; ++mit) {
+                    if ( mit == mAreaRing.rbegin() ) {
+                        if ( mit->second.first ) vMergedBoundaryLs[mit->second.second].reverse();
+                    } else {
+                        if ( !mit->second.first ) vMergedBoundaryLs[mit->second.second].reverse();
+                    }
+                    vRings.push_back(vMergedBoundaryLs[mit->second.second]);
+                }
+
+
+
+
+
+
+                
+                // std::vector<ign::geometry::LineString> vRings;
+                // for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
+                // {
+                //     ign::geometry::LineString const& ring = pAu.ringN(j);
+
+                //     // on extrait les partis de l'AU qui ne sont pas des frontieres
+                //     std::vector<std::pair<int,int>> vpNotTouchingParts;
+                //     std::vector<int> vTouchingPoints;
+                //     bool bAllIsTouching = _extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
+
+                //     // on gere les boucles
+                //     if (vpNotTouchingParts.empty()) {
+                //         std::pair< bool, ign::geometry::LineString > foundPath = _mlsToolBoundary->getPathAlong( ring.startPoint(), ring.endPoint(), ring, maxDist1, searchDistance1, snapDistOnVertex1);
+                //         if (foundPath.first) {
+                //             bIsModified = true;
+                //             vRings.push_back(foundPath.second);
+
+                //             ign::feature::Feature feature = fAu;
+                //             feature.setGeometry( foundPath.second );
+                //             _shapeLogger->writeFeature( "boucle", feature );
+                //         } else {
+                //             ign::feature::Feature feature = fAu;
+                //             feature.setGeometry( ring );
+                //             _shapeLogger->writeFeature( "test", feature );
+
+                //             vRings.push_back(ring);
+                //             // on projete les eventuels points de contact avec la frontiere
+                //             _projectTouchingPoints(_mlsToolBoundary, vRings.back(), vTouchingPoints, searchDistance2, snapDistOnVertex2);
+                //             if (vTouchingPoints.size() > 0) bIsModified = true;
+                //         }
+                //         continue;
+                //     }
+                //     bIsModified = true;
+
+                //     // on projete les eventuels points de contact avec la frontiere
+                //     ign::geometry::LineString ringWithContactPoints = ring;
+                //     _projectTouchingPoints(_mlsToolBoundary, ringWithContactPoints, vTouchingPoints, searchDistance2, snapDistOnVertex2);
+
+                //     std::vector<ign::geometry::LineString> vLsNotTouchingParts;
+                //     for ( int i = 0 ; i < vpNotTouchingParts.size() ; ++i ) {
+                //         vLsNotTouchingParts.push_back(_getSubString(vpNotTouchingParts[i], ringWithContactPoints));
+                //     }
+
+                //     // recupérer les angles de la frontière au niveau des extremites des vpNotTouchingParts
+                //     std::vector<std::pair<double, double>> vGeomFeatures;
+                //     _getAngles(indexedLandmaskNoCoasts, vLsNotTouchingParts, vGeomFeatures);
+                    
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i ) {
+                //         ign::feature::Feature feature = fAu;
+                //         feature.setGeometry( vLsNotTouchingParts[i] );
+                //         _shapeLogger->writeFeature( "not_boundaries", feature );
+                //     }
+                //     for ( int i = 0 ; i < vTouchingPoints.size() ; ++i ) {
+                //         ign::feature::Feature feature = fAu;
+                //         feature.setGeometry( ring.pointN(vTouchingPoints[i]) );
+                //         _shapeLogger->writeFeature( "contact_points", feature );
+                //     }
+
+                //     // on supprime les overshots
+                //     std::vector<std::pair<ign::geometry::Point,ign::geometry::Point>> vpStartEnd;
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
+                //     {
+                //         epg::tools::geometry::LineStringSplitter lsSplitter( vLsNotTouchingParts[i], 1e-5 );
+
+                //         ign::geometry::MultiLineString mls;
+                //         _mlsToolBoundary->getLocal(vLsNotTouchingParts[i].getEnvelope(), mls);
+                //         lsSplitter.addCuttingGeometry(mls);
+
+                //         vpStartEnd.push_back(std::make_pair(vLsNotTouchingParts[i].startPoint(), vLsNotTouchingParts[i].endPoint()));
+                //         vLsNotTouchingParts[i] = lsSplitter.truncAtEnds();
+                //     }
+
+                //     // on supprime les petits segments aux extremites qui ont etes tronquees
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
+                //     {
+                //         if ( !vLsNotTouchingParts[i].startPoint().equals(vpStartEnd[i].first) && vLsNotTouchingParts[i].numPoints() > 2 ) {
+                //             if (vLsNotTouchingParts[i].startPoint().distance(vLsNotTouchingParts[i].pointN(1)) < segmentMinLength) {
+                //                 ign::feature::Feature feature = fAu;
+                //                 feature.setGeometry( vLsNotTouchingParts[i].pointN(1) );
+                //                 _shapeLogger->writeFeature( "deleted_segments", feature );
+
+                //                 vLsNotTouchingParts[i].removePointN(1);
+
+                                
+                //             }
+                //         }
+                //         if ( !vLsNotTouchingParts[i].endPoint().equals(vpStartEnd[i].second) && vLsNotTouchingParts[i].numPoints() > 2 ) {
+                //             if (vLsNotTouchingParts[i].endPoint().distance(vLsNotTouchingParts[i].pointN(vLsNotTouchingParts[i].numPoints()-2)) < segmentMinLength) {
+                //                 ign::feature::Feature feature = fAu;
+                //                 feature.setGeometry( vLsNotTouchingParts[i].pointN(vLsNotTouchingParts[i].numPoints()-2) );
+                //                 _shapeLogger->writeFeature( "deleted_segments", feature );
+
+                //                 vLsNotTouchingParts[i].removePointN(vLsNotTouchingParts[i].numPoints()-2);
+                //             }
+                //         }
+                //     }
+
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
+                //     {
+                //         ign::feature::Feature feature = fAu;
+                //         feature.setGeometry( vLsNotTouchingParts[i] );
+                //         _shapeLogger->writeFeature( "not_boundaries_trim", feature );
+                //     }
+
+                //     // on identifie les similarité geometrique landmask/boundary et on remplace les 
+                //     // extremites des vLsNotTouchingParts si un candidat est trouve
+                //     _findAngles(_mlsToolBoundary, vLsNotTouchingParts, vGeomFeatures, searchDistance2);
+
+                //     // on reconstitue le nouveau contour en concatenant les parties ne touchant pas 
+                //     // la frontiere et les parties touchant la frontieres projetees sur la frontiere cible
+                //     ign::geometry::Point previousRingEndPoint = vLsNotTouchingParts.rbegin()->endPoint();
+
+                //     ign::geometry::LineString newRing;
+                //     bool bErrorConstructingRing = false;
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
+                //     {
+                //         std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolBoundary->getPath( 
+                //             previousRingEndPoint,
+                //             vLsNotTouchingParts[i].startPoint(),
+                //             searchDistance2,
+                //             snapDistOnVertex2
+                //         );
+                //         if ( !pathFound.first ) 
+                //         {
+                //             _logger->log(epg::log::ERROR, "Path not found for object [id] " + fAu.getId());
+                //             bErrorConstructingRing = true;
+                //             break;
+                //         }
+
+                //         ign::feature::Feature fPAth = fAu;
+                //         fPAth.setGeometry( pathFound.second );
+                //         _shapeLogger->writeFeature( "path", fPAth );
+
+                //         for( ign::geometry::LineString::const_iterator lsit = pathFound.second.begin() ; lsit != pathFound.second.end(); ++lsit ) {
+                //             newRing.addPoint(*lsit);
+                //         }
+
+                //         for( ign::geometry::LineString::const_iterator lsit = vLsNotTouchingParts[i].begin()+1 ; lsit != vLsNotTouchingParts[i].end()-1 ; ++lsit) {
+                //             newRing.addPoint(*lsit);
+                //         }
+
+                //         previousRingEndPoint = vLsNotTouchingParts[i].endPoint();
+
+                //         if ( i == vLsNotTouchingParts.size()-1 )
+                //         {
+                //             newRing.addPoint(newRing.startPoint());
+                //         }
+                //     }
+                //     if (bErrorConstructingRing)
+                //     {
+                //         _logger->log(epg::log::ERROR, "Error constructing ring [id] " + fAu.getId());
+                //         continue;
+                //     }
+
+                //     vRings.push_back(newRing);
+
+                //     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
+                //     {
+                //         ign::feature::Feature feature = fAu;
+                //         feature.setGeometry( vLsNotTouchingParts[i] );
+                //         _shapeLogger->writeFeature( "not_boundaries_merged", feature );
+                //     }
+                // }
                 ign::geometry::Polygon poly(vRings);
 
                 if ( !poly.isEmpty() )
@@ -478,23 +720,24 @@ namespace matching{
                 }
             }
 
-            if (!bIsModified || newGeometry.equals(mpAu)) {
+            if ( !newGeometry.isValid() ) {
+                _logger->log(epg::log::ERROR, "MultiPolygon is not valid [id] " + fAu.getId());
+                _shapeLogger->writeFeature( "resulting_polygons_not_valid", fAu );
+            } else if (!bIsModified || newGeometry.equals(mpAu)) {
                 _shapeLogger->writeFeature( "resulting_polygons_not_modified", fAu );
-            } else {
-                fAu.setGeometry(newGeometry);
-                if ( !newGeometry.isEmpty() )
-                {
-                    fsAu->modifyFeature(fAu);
-                } else {
-                    _logger->log(epg::log::ERROR, "MultiPolygon is empty [id] " + fAu.getId());
-                }
-                
-                if ( !newGeometry.isValid() ) {
-                    _logger->log(epg::log::ERROR, "MultiPolygon is not valid [id] " + fAu.getId());
-                    _shapeLogger->writeFeature( "resulting_polygons_not_valid", fAu );
-                }
-                _shapeLogger->writeFeature( "resulting_polygons", fAu );
+                continue;
             }
+
+            fAu.setGeometry(newGeometry);
+            if ( !newGeometry.isEmpty() )
+            {
+                fsAu->modifyFeature(fAu);
+            } else {
+                _logger->log(epg::log::ERROR, "MultiPolygon is empty [id] " + fAu.getId());
+            }
+            
+            _shapeLogger->writeFeature( "resulting_polygons", fAu );
+
             ++display;
         }
 
@@ -765,7 +1008,7 @@ namespace matching{
     ///
 	///
 	///
-    void AuMatchingOp::_extractNotTouchingParts(
+    bool AuMatchingOp::_extractNotTouchingParts(
         const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::LineString & ls, 
         std::vector<std::pair<int,int>> & vNotTouchingParts,
@@ -776,8 +1019,12 @@ namespace matching{
         int nbPoints = ls.numPoints();
 
         std::vector < bool > vIsTouchingPoints(nbPoints, false);
+        bool bAllIsTouching = true;
         for ( int k = 0 ; k < nbPoints ; ++k ) {
-            if ( refGeom->distance( ls.pointN(k), 0.1 ) < 0 ) continue;
+            if ( refGeom->distance( ls.pointN(k), 0.1 ) < 0 ) {
+                bAllIsTouching = false;
+                continue;
+            }
             vIsTouchingPoints[k] = true;
         }
 
@@ -824,6 +1071,8 @@ namespace matching{
                 currentSegment = next;
             } while ( currentSegment != end );
         }
+
+        return bAllIsTouching;
     };
 
     ///

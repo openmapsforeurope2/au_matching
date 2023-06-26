@@ -126,7 +126,8 @@ namespace matching{
 		) const;
 
 		//--
-		void _extractNotTouchingParts(
+		// return true if not touching parts have been found
+		bool _extractNotTouchingParts(
 			const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
 			const ign::geometry::LineString & ls, 
 			std::vector<std::pair<int,int>> & vNotTouchingParts,
