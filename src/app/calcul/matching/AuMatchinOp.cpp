@@ -268,13 +268,13 @@ namespace matching{
 
         _logger->log(epg::log::INFO, "[START] no coast computation: "+epg::tools::TimeTools::getTime());
         // NO DEBUG
-        const epg::tools::geometry::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new epg::tools::geometry::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
+        const tools::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new tools::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
 
         std::vector<std::vector<std::vector<std::pair<int,int>>>> vLandmaskNoCoasts;
         _extractNotTouchingParts( indexedLandmaskCoasts, mpLandmask, vLandmaskNoCoasts );
 
         std::vector<ign::geometry::LineString> vLsLandmaskNoCoasts;
-        epg::tools::geometry::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new epg::tools::geometry::SegmentIndexedGeometryCollection();
+        tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
         for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) {
             for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr ) {
                 for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i ) {
@@ -283,8 +283,10 @@ namespace matching{
             }
         }
         // a faire dans un deuxième temps car les pointeurs sur les éléments de vecteur peuvent être modifiés en cas de réallocation
+        int numGroup = 0;
         for (size_t i = 0 ; i < vLsLandmaskNoCoasts.size() ; ++i) {
-            indexedLandmaskNoCoasts->addGeometry(&vLsLandmaskNoCoasts[i]);
+            int group = vLsLandmaskNoCoasts[i].isClosed() ? numGroup++ : -1;
+            indexedLandmaskNoCoasts->addGeometry(&vLsLandmaskNoCoasts[i], group);
         }
 
         for ( int i = 0 ; i < vLsLandmaskNoCoasts.size() ; ++i )
@@ -296,7 +298,7 @@ namespace matching{
         // NO DEBUG
 
         // DEBUG
-        // epg::tools::geometry::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new epg::tools::geometry::SegmentIndexedGeometryCollection();
+        // tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
         // indexedLandmaskNoCoasts->addGeometry(&mpLandmask);
         // DEBUG
 
@@ -307,12 +309,6 @@ namespace matching{
         ** 
         *********************************************************************************************
         */
-
-        // Go through objects intersecting the boundary
-        ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
-        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('11ad9a33-0eb9-4f04-9694-8e3696bb6ecd')"));
-
         // on indexe les contours frontière fermés 
         ign::feature::FeatureIteratorPtr itBoundary = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger2;
@@ -323,14 +319,20 @@ namespace matching{
         }
         std::vector< ign::geometry::LineString > vMergedBoundaryLs = merger2.getMergedLineStrings();
 
-        std::vector< epg::tools::geometry::SegmentIndexedGeometryInterface* > vMergedBoundaryIndexedLs(vMergedBoundaryLs.size(), 0);
+        std::vector< tools::SegmentIndexedGeometryInterface* > vMergedBoundaryIndexedLs(vMergedBoundaryLs.size(), 0);
         ign::geometry::index::QuadTree< size_t > qTreeClosedBoundary;
         for ( size_t i = 0 ; i < vMergedBoundaryLs.size() ; ++i ) {
             if ( vMergedBoundaryLs[i].isClosed() ) {
-                vMergedBoundaryIndexedLs[i] = new epg::tools::geometry::SegmentIndexedGeometry( &vMergedBoundaryLs[i] );
+                vMergedBoundaryIndexedLs[i] = new tools::SegmentIndexedGeometry( &vMergedBoundaryLs[i] );
                 qTreeClosedBoundary.insert( i, vMergedBoundaryLs[i].getEnvelope() );
             }
         }
+
+        // Go through objects intersecting the boundary
+        ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
+        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
+        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('e69366a6-24ee-484e-a5c1-f5b3e81242ef')"));
+        // 'bb927b5d-f447-48c4-82d0-2ba7aca4826d', 'fcdfaa4c-7d86-42c2-8d84-20b0a63730e0'
 
         //patience
         int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
@@ -351,7 +353,7 @@ namespace matching{
             {
                 ign::geometry::Polygon const& pAu = mpAu.polygonN(i);
 
-                // if (pAu.intersects(ign::geometry::Point(3969637.78,3160444.92))){
+                // if (pAu.intersects(ign::geometry::Point(3969556.5,3159378.5))){
                 //     bool pouet = true;
                 // }else {
                 //     continue;
@@ -381,7 +383,7 @@ namespace matching{
                         {
                             // if ( sAddedClosedBoundary.find(*sit) != sAddedClosedBoundary.end() ) continue;
 
-                            if ( vMergedBoundaryIndexedLs[*sit]->distance(ring, boundMaxDist) < 0 ) continue;
+                            if ( vMergedBoundaryIndexedLs[*sit]->distance(ring, boundMaxDist).first < 0 ) continue;
                             ign::geometry::algorithm::OptimizedHausdorffDistanceOp hausdorfOp(ring, vMergedBoundaryLs[*sit], -1, boundMaxDist);
                             double distance = hausdorfOp.getDemiHausdorff(ign::geometry::algorithm::OptimizedHausdorffDistanceOp::DhdFromAtoB);
                             if (distance < 0) {
@@ -493,13 +495,26 @@ namespace matching{
                     // la frontiere et les parties touchant la frontieres projetees sur la frontiere cible
                     ign::geometry::Point previousRingEndPoint = vLsNotTouchingParts.rbegin()->endPoint();
 
+                    // on recupere les parties longeant les frontieres pour guider les chemins le long des trous
+                    std::vector<std::pair<int,int>> vpTouchingParts = _getTouchingParts(vpNotTouchingParts, ring.numPoints(), true);
+                    if ( vpTouchingParts.empty() || (vpTouchingParts.front().second != vpNotTouchingParts.front().first) ) {
+                        _logger->log(epg::log::ERROR, "Touching/not touching parts are not matching " + fAu.getId());
+                    }
+
+                    std::vector<ign::geometry::LineString> vLsTouchingParts;
+                    for ( int i = 0 ; i < vpTouchingParts.size() ; ++i ) {
+                        vLsTouchingParts.push_back(_getSubString(vpTouchingParts[i], ringWithContactPoints));
+                    }
+
                     ign::geometry::LineString newRing;
                     bool bErrorConstructingRing = false;
                     for ( int i = 0 ; i < vLsNotTouchingParts.size() ; ++i )
                     {
-                        std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolBoundary->getPath( 
+                        std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolBoundary->getPathAlong( 
                             previousRingEndPoint,
                             vLsNotTouchingParts[i].startPoint(),
+                            vLsTouchingParts[i],
+                            boundSearchDist, // maxDist
                             boundSearchDist,
                             boundSnapDist
                         );
@@ -595,7 +610,7 @@ namespace matching{
 	///
 	///
     void AuMatchingOp::_getAngles( 
-        epg::tools::geometry::SegmentIndexedGeometryCollection* indexedGeom, 
+        tools::SegmentIndexedGeometryCollection* indexedGeom, 
         const std::vector<ign::geometry::LineString> & vLs,
         std::vector<std::pair<double, double>> & vGeomFeatures) const
     {
@@ -608,7 +623,7 @@ namespace matching{
 	///
 	///
     double AuMatchingOp::_getAngle(
-        epg::tools::geometry::SegmentIndexedGeometryCollection* indexedGeom, 
+        tools::SegmentIndexedGeometryCollection* indexedGeom, 
         const ign::geometry::Point & pt ) const 
     {
         std::vector<ign::geometry::LineString> vSegments;
@@ -854,7 +869,7 @@ namespace matching{
 	///
 	///
     void AuMatchingOp::_extractNotTouchingParts(
-        const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+        const tools::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::LineString & ls, 
         std::vector<std::pair<int,int>> & vNotTouchingParts,
         std::vector<int>* vTouchingPoints) const
@@ -864,20 +879,23 @@ namespace matching{
         int nbPoints = ls.numPoints();
 
         std::vector < bool > vIsTouchingPoints(nbPoints, false);
+        std::vector < std::set<int> > vGroup(nbPoints, std::set<int>());
         for ( int k = 0 ; k < nbPoints ; ++k ) {
-            if ( refGeom->distance( ls.pointN(k), 0.1 ) < 0 ) {
+            std::pair<double, std::set<int>> distGroup = refGeom->distance( ls.pointN(k), 0.1 );
+            if ( distGroup.first < 0 ) {
                 continue;
             }
             vIsTouchingPoints[k] = true;
+            vGroup[k] = distGroup.second;
         }
 
         int notTouchingFirstSegment = -1;
         bool bNothingIsTouching = true;
-        bool previousSegmentIsTouching = !isRing ? false : vIsTouchingPoints[nbSegments-1] && vIsTouchingPoints[nbSegments] ;
+        bool previousSegmentIsTouching = !isRing ? false : vIsTouchingPoints[nbSegments-1] && vIsTouchingPoints[nbSegments] && _commonGroupExists(vGroup[nbSegments-1], vGroup[nbSegments]) ;
         std::vector < bool > vTouchingSegments(nbSegments, false);
         for ( int currentSegment = 0 ; currentSegment < nbSegments ; ++currentSegment )
         {
-            bool currentSegmentIsTouching = vIsTouchingPoints[currentSegment] && vIsTouchingPoints[currentSegment+1];
+            bool currentSegmentIsTouching = vIsTouchingPoints[currentSegment] && vIsTouchingPoints[currentSegment+1] && _commonGroupExists(vGroup[currentSegment], vGroup[currentSegment+1]);
 
             if (currentSegmentIsTouching)
             {
@@ -924,10 +942,23 @@ namespace matching{
     };
 
     ///
+    ///
+    ///
+    bool AuMatchingOp::_commonGroupExists( std::set<int> const& sGroup1, std::set<int> const& sGroup2 ) const 
+    {
+        if (sGroup1.empty() && sGroup2.empty()) return true;
+
+        for ( std::set<int>::const_iterator sit1 = sGroup1.begin() ; sit1 != sGroup1.end() ; ++sit1 ) {
+            if( sGroup2.find(*sit1) != sGroup2.end() ) return true;
+        }
+        return false;
+    }
+
+    ///
 	///
 	///
     void AuMatchingOp::_extractNotTouchingParts(
-        const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+        const tools::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::Polygon & p, 
         std::vector<std::vector<std::pair<int,int>>> & vNotTouchingParts,
         std::vector<std::vector<int>>* vTouchingPoints) const
@@ -949,7 +980,7 @@ namespace matching{
 	///
 	///
     void AuMatchingOp::_extractNotTouchingParts(
-        const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+        const tools::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::MultiPolygon & mp, 
         std::vector<std::vector<std::vector<std::pair<int,int>>>> & vNotTouchingParts,
         std::vector<std::vector<std::vector<int>>>* vTouchingPoints) const
@@ -966,6 +997,39 @@ namespace matching{
             _extractNotTouchingParts(refGeom, mp.polygonN(i), vNotTouchingParts.back(), vTouchingPoints_);
         }
     };
+
+
+
+    std::vector<std::pair<int,int>> AuMatchingOp::_getTouchingParts(
+        std::vector<std::pair<int,int>> const& vpNotTouchingParts, 
+        size_t nbPoints, 
+        bool isClosed) const 
+    {
+        std::vector<std::pair<int,int>> vpTouchingParts;
+
+        if ( vpNotTouchingParts.empty() ) {
+            vpTouchingParts.push_back(std::make_pair(0, nbPoints-1));
+        }
+
+        int previousTouchingPoint = isClosed ? vpNotTouchingParts.back().second : vpNotTouchingParts.front().first == 0 ? vpNotTouchingParts.front().second : 0 ;
+
+        for ( size_t i = 0 ; i < vpNotTouchingParts.size() ; ++i ) {
+            if (i == 0)  {
+                if (!isClosed && vpNotTouchingParts[i].first == 0 ) continue;
+            }
+
+            vpTouchingParts.push_back(std::make_pair(previousTouchingPoint, vpNotTouchingParts[i].first));
+            previousTouchingPoint = vpNotTouchingParts[i].second;
+
+            if (i == vpNotTouchingParts.size()-1)  {
+                if (!isClosed && vpNotTouchingParts[i].second != nbPoints-1 ) {
+                    vpTouchingParts.push_back(std::make_pair(previousTouchingPoint, nbPoints-1));
+                }
+            }
+        }
+
+        return vpTouchingParts;
+    }
 }
 }
 }

@@ -4,9 +4,10 @@
 //EPG
 #include <epg/log/EpgLogger.h>
 #include <epg/log/ShapeLogger.h>
-#include <epg/tools/geometry/SegmentIndexedGeometry.h>
 #include <epg/tools/MultiLineStringTool.h>
 
+//APP
+#include <app/tools/SegmentIndexedGeometry.h>
 
 namespace app{
 namespace calcul{
@@ -57,14 +58,14 @@ namespace matching{
 
 		//--
 		void _getAngles( 
-			epg::tools::geometry::SegmentIndexedGeometryCollection* indexedGeom, 
+			tools::SegmentIndexedGeometryCollection* indexedGeom, 
 			const std::vector<ign::geometry::LineString> & vLs,
 			std::vector<std::pair<double, double>> & vGeomFeatures
 		) const;
 
 		//--
 		double _getAngle(
-			epg::tools::geometry::SegmentIndexedGeometryCollection* indexedGeom, 
+			tools::SegmentIndexedGeometryCollection* indexedGeom, 
 			const ign::geometry::Point & pt
 		) const;
 
@@ -127,7 +128,7 @@ namespace matching{
 
 		//--
 		void _extractNotTouchingParts(
-			const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+			const tools::SegmentIndexedGeometryInterface* refGeom,
 			const ign::geometry::LineString & ls, 
 			std::vector<std::pair<int,int>> & vNotTouchingParts,
 			std::vector<int>* vTouchingPoints = 0
@@ -135,7 +136,7 @@ namespace matching{
 
 		//--
 		void _extractNotTouchingParts(
-			const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+			const tools::SegmentIndexedGeometryInterface* refGeom,
 			const ign::geometry::Polygon & p, 
 			std::vector<std::vector<std::pair<int,int>>> & vNotTouchingParts,
 			std::vector<std::vector<int>>* vTouchingPoints = 0
@@ -143,11 +144,25 @@ namespace matching{
 
 		//--
 		void _extractNotTouchingParts(
-			const epg::tools::geometry::SegmentIndexedGeometryInterface* refGeom,
+			const tools::SegmentIndexedGeometryInterface* refGeom,
 			const ign::geometry::MultiPolygon & mp, 
 			std::vector<std::vector<std::vector<std::pair<int,int>>>> & vNotTouchingParts,
 			std::vector<std::vector<std::vector<int>>>* vTouchingPoints = 0
 		) const;
+
+		//--
+		std::vector<std::pair<int,int>> _getTouchingParts(
+			std::vector<std::pair<int,int>> const& vpNotTouchingParts, 
+			size_t nbPoints, 
+			bool isClosed
+		) const;
+
+		//--
+		bool _commonGroupExists( 
+			std::set<int> const& sGroup1,
+			std::set<int> const& sGroup2
+		) const;
+
 	};
 }
 }
