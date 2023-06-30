@@ -174,7 +174,8 @@ namespace matching{
         */
         ign::geometry::MultiLineString mlsLandmaskCoastPath;
         // NO DEBUG
-        ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
+        // ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
+        ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND "+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger;
         while (itCoast->hasNext())
         {
@@ -196,7 +197,7 @@ namespace matching{
                         break;
                     }
                 }
-                if(boundType != typeCostlineValue && boundType != typeInlandValue) continue;
+                if(boundType != typeCostlineValue) continue;
             }
             merger.add(lsCoast);
         }
@@ -331,7 +332,7 @@ namespace matching{
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
         ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('e69366a6-24ee-484e-a5c1-f5b3e81242ef')"));
+        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('91b34718-ac55-421f-a554-4ca949b15576')"));
         // 'bb927b5d-f447-48c4-82d0-2ba7aca4826d', 'fcdfaa4c-7d86-42c2-8d84-20b0a63730e0'
 
         //patience
