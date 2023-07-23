@@ -6,7 +6,7 @@
         "request": "launch",
         "program": "/usr/local/src/au_matching/bin/ome2_au_matchingd",
         "cwd": "/usr/local/src/au_matching",
-        "args": ["--c", "/usr/local/src/au_matching/data/config/epg_parameters.ini", "--t", "administrative_unit_3_w", "--cc", "nl"],
+        "args": ["--c", "/usr/local/src/au_matching/data/config/epg_parameters.ini", "--t", "administrative_unit_6_w", "--cc", "fr"],
         "stopAtEntry": true,
         "environment": [{ "name": "config", "value": "Debug" }],
         "externalConsole": true,

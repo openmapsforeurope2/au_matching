@@ -332,8 +332,7 @@ namespace matching{
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
         ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('91b34718-ac55-421f-a554-4ca949b15576')"));
-        // 'bb927b5d-f447-48c4-82d0-2ba7aca4826d', 'fcdfaa4c-7d86-42c2-8d84-20b0a63730e0'
+        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('40655405-8e6f-40dd-8673-07c2379b06a8')"));
 
         //patience
         int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
