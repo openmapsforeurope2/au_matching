@@ -80,7 +80,10 @@ int main(int argc, char *argv[])
         //theme parameters
         themeParametersFile = context->getConfigParameters().getValue( THEME_PARAMETER_FILE ).toString();
 		app::params::ThemeParameters* themeParameters = app::params::ThemeParametersS::getInstance();
-        epg::params::tools::loadParams( *themeParameters, themeParametersFile );
+        epg::params::tools::loadParams( *themeParameters, themeParametersFile, countryCode );
+
+        //info de connection db
+        context->loadEpgParameters( themeParameters->getValue(DB_CONF_FILE).toString() );
 
         //lancement du traitement
         app::calcul::matching::AuMatchingOp::compute(auTable, countryCode, verbose);
