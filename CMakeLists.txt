@@ -167,6 +167,13 @@ install(
 	bin
 )
 
+if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/version)
+    file(READ ${CMAKE_CURRENT_LIST_DIR}/version VERSION)
+else()
+    message("version file not found")
+	set(VERSION 0.0.0)
+endif ()
+
 set(CPACK_DEBIAN_PACKAGE_NAME "${PROJECT_NAME}")
 set(CPACK_DEBIAN_FILE_NAME "${PROJECT_NAME}-${VERSION}.deb")
 set(CPACK_DEBIAN_PACKAGE_VERSION "${VERSION}")
