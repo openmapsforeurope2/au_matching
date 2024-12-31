@@ -1,8 +1,7 @@
 bin
 build-unix
-data/log
 log.txt
 log
 gmon.out
 core
-data/config/db_conf.ini
+config/db_conf.ini
