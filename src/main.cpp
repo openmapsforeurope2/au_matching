@@ -7,6 +7,9 @@
 #include <epg/tools/TimeTools.h>
 #include <epg/params/tools/loadParameters.h>
 
+//OME2
+#include <ome2/utils/setTableName.h>
+
 //APP
 #include <app/params/ThemeParameters.h>
 #include <app/calcul/matching/AuMatchingOp.h>
@@ -84,9 +87,18 @@ int main(int argc, char *argv[])
 
         //info de connection db
         context->loadEpgParameters( themeParameters->getValue(DB_CONF_FILE).toString() );
+        
+        //set BDD search path
+        ome2::utils::setTableName(auTable);
+        ome2::utils::setTableName<app::params::ThemeParametersS>(LANDMASK_TABLE);
+        ome2::utils::setTableName<epg::params::EpgParametersS>(TARGET_BOUNDARY_TABLE);
+
+        logger->log(epg::log::INFO, "[START AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
         //lancement du traitement
         app::calcul::matching::AuMatchingOp::compute(auTable, countryCode, verbose);
+
+		logger->log(epg::log::INFO, "[END AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
     }
     catch( ign::Exception &e )
