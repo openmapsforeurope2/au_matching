@@ -1,5 +1,26 @@
 # au_matching
 
-cd docker
-./build-docker-image.sh
-docker run -it au_matching au_matching --c /usr/local/src/au_matching/config/epg_parameters.ini --t administrative_unit_area_w --cc be
+## Context: Ome2
+
+
+## Description
+
+
+## Configuration
+
+
+## Utilisation
+
+
+Paramètres :
+
+* c [obligatoire] : chemin vers le fichier de configuration
+* t [obligatoire] : nom de la table de travail
+* cc [obligatoire] : code pays simple
+
+
+Exemples d'appels:
+
+~~~
+bin/au_matching --c path/to/config/epg_parmaters.ini --t work.administrative_unit_6_w --cc fr
+~~~

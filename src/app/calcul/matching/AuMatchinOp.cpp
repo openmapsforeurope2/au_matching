@@ -169,11 +169,11 @@ namespace matching{
 
         /*
         *********************************************************************************************
-        ** On 
+        ** On Extrait les côtes
         *********************************************************************************************
         */
         ign::geometry::MultiLineString mlsLandmaskCoastPath;
-        // NO DEBUG
+        // NO DEBUG [1]
         // ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
         ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND "+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger;
@@ -232,9 +232,9 @@ namespace matching{
                 _shapeLogger->writeFeature( "coastline_path", feat );
             }
         }
-        // NO DEBUG
+        // NO DEBUG [1]
 
-        // DEBUG
+        // DEBUG [1]
         // ign::feature::FeatureIteratorPtr itDebug = _fsLandmask->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         // while (itDebug->hasNext())
         // {
@@ -247,7 +247,7 @@ namespace matching{
         //         }
         //     }
         // }
-        // DEBUG
+        // DEBUG [1]
 
         _logger->log(epg::log::INFO, "[END] coast path computation: "+epg::tools::TimeTools::getTime());
 
@@ -268,7 +268,7 @@ namespace matching{
         }
 
         _logger->log(epg::log::INFO, "[START] no coast computation: "+epg::tools::TimeTools::getTime());
-        // NO DEBUG
+        // NO DEBUG [2]
         const tools::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new tools::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
 
         std::vector<std::vector<std::vector<std::pair<int,int>>>> vLandmaskNoCoasts;
@@ -296,12 +296,12 @@ namespace matching{
             feature.setGeometry( vLsLandmaskNoCoasts[i] );
             _shapeLogger->writeFeature( "boundary_not_touching_coast", feature );
         }
-        // NO DEBUG
+        // NO DEBUG [2]
 
-        // DEBUG
+        // DEBUG [2]
         // tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
         // indexedLandmaskNoCoasts->addGeometry(&mpLandmask);
-        // DEBUG
+        // DEBUG [2]
 
         _logger->log(epg::log::INFO, "[END] no coast computation: "+epg::tools::TimeTools::getTime());
 
@@ -344,7 +344,6 @@ namespace matching{
             ign::geometry::MultiPolygon const& mpAu = fAu.getGeometry().asMultiPolygon();
             ign::geometry::algorithm::PolygonBuilderV1 polyBuilder;
             std::set< size_t > sAddedClosedBoundary;
-            // ign::geometry::MultiPolygon newGeometry;
 
             if (_verbose) _logger->log(epg::log::DEBUG,fAu.getId());
 
@@ -353,13 +352,6 @@ namespace matching{
             {
                 ign::geometry::Polygon const& pAu = mpAu.polygonN(i);
 
-                // if (pAu.intersects(ign::geometry::Point(3969556.5,3159378.5))){
-                //     bool pouet = true;
-                // }else {
-                //     continue;
-                // }
-                
-                // std::vector<ign::geometry::LineString> vRings;
                 for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
                 {
                     ign::geometry::LineString const& ring = pAu.ringN(j);
@@ -381,8 +373,6 @@ namespace matching{
                         std::set< size_t >::const_iterator sit;
                         for( sit = sClosedBoundary.begin() ; sit != sClosedBoundary.end() ; ++sit )
                         {
-                            // if ( sAddedClosedBoundary.find(*sit) != sAddedClosedBoundary.end() ) continue;
-
                             if ( vMergedBoundaryIndexedLs[*sit]->distance(ring, boundMaxDist).first < 0 ) continue;
                             ign::geometry::algorithm::OptimizedHausdorffDistanceOp hausdorfOp(ring, vMergedBoundaryLs[*sit], -1, boundMaxDist);
                             double distance = hausdorfOp.getDemiHausdorff(ign::geometry::algorithm::OptimizedHausdorffDistanceOp::DhdFromAtoB);
@@ -560,21 +550,6 @@ namespace matching{
                         _shapeLogger->writeFeature( "not_boundaries_merged", feature );
                     }    
                 }
-                // ign::geometry::Polygon poly(vRings);
-                // ign::geometry::MultiPolygon poly = polyBuilder.getMultiPolygon();
-
-                // if ( !poly.isEmpty() )
-                // {
-                //     if ( !poly.isValid() )
-                //     {
-                //         _logger->log(epg::log::ERROR, "Polygon is not valid [id] " + fAu.getId());
-                //     }
-                //     for (size_t i = 0 ; i < poly.numGeometries() ; ++i) {
-                //         newGeometry.addGeometry(poly.polygonN(i));
-                //     }
-                // } else {
-                //     _logger->log(epg::log::ERROR, "Polygon is empty [id] " + fAu.getId());
-                // }
             }
 
             ign::geometry::MultiPolygon newGeometry = polyBuilder.getMultiPolygon();

@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
         logger->log(epg::log::INFO, "[START AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
         //lancement du traitement
-        app::calcul::matching::AuMatchingOp::compute(auTable, countryCode, verbose);
+        app::calcul::matching::AuMatchingOp::Compute(auTable, countryCode, verbose);
 
 		logger->log(epg::log::INFO, "[END AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 

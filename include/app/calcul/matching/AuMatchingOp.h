@@ -13,12 +13,20 @@ namespace app{
 namespace calcul{
 namespace matching{
 
+	/// @brief Classe consacrée à la mise en cohérence des surfaces
+	/// administratives avec les frontières.
 	class AuMatchingOp {
 
 	public:
 
-		/// \brief
-		static void compute(
+		/// @brief Lance la reconstruction des surfaces administratives frontalières.
+		/// Ce travail de mise en cohérence doit être réalisé sur la table des unités 
+		/// administratives de plus faible échelon (qui diffère selon le pays). Les échelons
+		/// supérieurs seront dérivés par fusion des échelons inférieurs.
+		/// @param workingTable Table de travail ()
+		/// @param countryCode Code pays simple
+		/// @param verbose Mode verbeux
+		static void Compute(
 			std::string workingTable, 
 			std::string countryCode, 
 			bool verbose
