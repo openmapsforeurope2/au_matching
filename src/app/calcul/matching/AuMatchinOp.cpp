@@ -33,7 +33,7 @@ namespace matching{
 	///
 	///
 	///
-    void AuMatchingOp::compute(
+    void AuMatchingOp::Compute(
         std::string workingTable, 
         std::string countryCode, 
         bool verbose) 
