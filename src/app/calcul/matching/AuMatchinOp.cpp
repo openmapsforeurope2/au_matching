@@ -22,6 +22,7 @@
 #include <epg/tools/geometry/project.h>
 #include <epg/tools/geometry/angle.h>
 #include <epg/tools/geometry/LineStringSplitter.h>
+#include <ome2/feature/sql/NotDestroyedTools.h>
 
 
 using namespace app::detail;
@@ -108,9 +109,9 @@ namespace matching{
         //--
         _fsLandmask = context->getDataBaseManager().getFeatureStore(landmaskTableName, idName, geomName);
         //--
-        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter("country LIKE '%"+_countryCode+"%'"), *_fsBoundary );
+        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter("country LIKE '%"+_countryCode+"%' AND NOT gcms_detruit"), *_fsBoundary );
         //--
-        _mlsToolLandmask = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"), *_fsLandmask );
+        _mlsToolLandmask = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'  AND NOT gcms_detruit"), *_fsLandmask );
         
         //--
         _shapeLogger = epg::log::ShapeLoggerS::getInstance();
@@ -175,8 +176,9 @@ namespace matching{
         ign::geometry::MultiLineString mlsLandmaskCoastPath;
         // NO DEBUG [1]
         // ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
-        ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND "+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%'"));
-        ign::geometry::algorithm::LineMergerOpGeos merger;
+		ign::feature::FeatureIteratorPtr itCoast = ome2::feature::sql::getFeatures(_fsBoundary, ign::feature::FeatureFilter(countryCodeName + " LIKE '%" + _countryCode + "%' AND " + boundaryTypeName + "::text LIKE '%" + typeCostlineValue + "%'"));
+
+		ign::geometry::algorithm::LineMergerOpGeos merger;
         while (itCoast->hasNext())
         {
             ign::feature::Feature const& fCoast = itCoast->next();
@@ -257,8 +259,8 @@ namespace matching{
         *********************************************************************************************
         */
         ign::geometry::MultiPolygon mpLandmask;
-        ign::feature::FeatureIteratorPtr itLandmask= _fsLandmask->getFeatures(ign::feature::FeatureFilter(landCoverTypeName+" = '"+landAreaValue+"' AND "+countryCodeName+" = '"+_countryCode+"'"));
-        while (itLandmask->hasNext())
+		ign::feature::FeatureIteratorPtr itLandmask = ome2::feature::sql::getFeatures(_fsLandmask, ign::feature::FeatureFilter(landCoverTypeName + " = '" + landAreaValue + "' AND " + countryCodeName + " = '" + _countryCode + "'"));
+		while (itLandmask->hasNext())
         {
             ign::feature::Feature const& fLandmask = itLandmask->next();
             ign::geometry::MultiPolygon const& mp = fLandmask.getGeometry().asMultiPolygon();
@@ -311,7 +313,7 @@ namespace matching{
         *********************************************************************************************
         */
         // on indexe les contours frontière fermés 
-        ign::feature::FeatureIteratorPtr itBoundary = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
+        ign::feature::FeatureIteratorPtr itBoundary = ome2::feature::sql::getFeatures(_fsBoundary, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger2;
         while (itBoundary->hasNext()) {
             ign::feature::Feature const& fBoundary = itBoundary->next();
@@ -331,11 +333,12 @@ namespace matching{
 
         // Go through objects intersecting the boundary
         ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
-        ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
+        ign::feature::FeatureIteratorPtr itAu = ome2::feature::sql::getFeatures(fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
+		//ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName + " = '" + _countryCode + "'"));
         // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('40655405-8e6f-40dd-8673-07c2379b06a8')"));
 
         //patience
-        int numFeatures = epg::sql::tools::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
+        int numFeatures = ome2::feature::sql::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode + "'"));
         boost::progress_display display( numFeatures , std::cout, "[ au_matching  % complete ]\n") ;        
 
         while (itAu->hasNext())
@@ -398,7 +401,7 @@ namespace matching{
                         continue;
                     }
                     
-                    // on projete les eventuels points de contact avec la frontiere
+                    // on projette les eventuels points de contact avec la frontiere
                     ign::geometry::LineString ringWithContactPoints = ring;
                     _projectTouchingPoints(_mlsToolBoundary, ringWithContactPoints, vTouchingPoints, boundSearchDist, boundSnapDist);
 

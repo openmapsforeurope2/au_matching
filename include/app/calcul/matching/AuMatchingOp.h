@@ -5,6 +5,7 @@
 #include <epg/log/EpgLogger.h>
 #include <epg/log/ShapeLogger.h>
 #include <epg/tools/MultiLineStringTool.h>
+#include <ome2/feature/sql/NotDestroyedTools.h>
 
 //APP
 #include <app/tools/SegmentIndexedGeometry.h>
