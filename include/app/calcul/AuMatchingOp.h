@@ -1,5 +1,5 @@
-#ifndef _APP_CALCUL_MATCHING_AUMATCHINGOP_H_
-#define _APP_CALCUL_MATCHING_AUMATCHINGOP_H_
+#ifndef _APP_CALCUL_AUMATCHINGOP_H_
+#define _APP_CALCUL_AUMATCHINGOP_H_
 
 //EPG
 #include <epg/log/EpgLogger.h>
@@ -12,7 +12,6 @@
 
 namespace app{
 namespace calcul{
-namespace matching{
 
 	/// @brief Classe consacrée à la mise en cohérence des surfaces
 	/// administratives avec les frontières.
@@ -24,24 +23,24 @@ namespace matching{
 		/// Ce travail de mise en cohérence doit être réalisé sur la table des unités 
 		/// administratives de plus faible échelon (qui diffère selon le pays). Les échelons
 		/// supérieurs seront dérivés par fusion des échelons inférieurs.
-		/// @param workingTable Table de travail ()
 		/// @param countryCode Code pays simple
 		/// @param verbose Mode verbeux
 		static void Compute(
-			std::string workingTable, 
 			std::string countryCode, 
 			bool verbose
 		);
 
 	private:
 		//--
+		ign::feature::sql::FeatureStorePostgis*            _fsNoCoast;
+		//--
+		ign::feature::sql::FeatureStorePostgis*            _fsArea;
+		//--
 		ign::feature::sql::FeatureStorePostgis*            _fsBoundary;
 		//--
 		ign::feature::sql::FeatureStorePostgis*            _fsLandmask;
 		//--
 		epg::tools::MultiLineStringTool*                   _mlsToolBoundary;
-		//--
-		epg::tools::MultiLineStringTool*                   _mlsToolLandmask;
 		//--
 		epg::log::EpgLogger*                               _logger;
 		//--
@@ -63,7 +62,7 @@ namespace matching{
 		void _init();
 
 		//--
-		void _compute(std::string workingTable);
+		void _compute();
 
 		//--
 		void _getAngles( 
@@ -130,50 +129,13 @@ namespace matching{
 		) const;
 
 		//--
-		ign::geometry::LineString _getSubString(
-			std::pair<int, int> pStartEnd, 
-			const ign::geometry::LineString & lsRef
-		) const;
-
-		//--
-		void _extractNotTouchingParts(
-			const tools::SegmentIndexedGeometryInterface* refGeom,
-			const ign::geometry::LineString & ls, 
-			std::vector<std::pair<int,int>> & vNotTouchingParts,
-			std::vector<int>* vTouchingPoints = 0
-		) const;
-
-		//--
-		void _extractNotTouchingParts(
-			const tools::SegmentIndexedGeometryInterface* refGeom,
-			const ign::geometry::Polygon & p, 
-			std::vector<std::vector<std::pair<int,int>>> & vNotTouchingParts,
-			std::vector<std::vector<int>>* vTouchingPoints = 0
-		) const;
-
-		//--
-		void _extractNotTouchingParts(
-			const tools::SegmentIndexedGeometryInterface* refGeom,
-			const ign::geometry::MultiPolygon & mp, 
-			std::vector<std::vector<std::vector<std::pair<int,int>>>> & vNotTouchingParts,
-			std::vector<std::vector<std::vector<int>>>* vTouchingPoints = 0
-		) const;
-
-		//--
 		std::vector<std::pair<int,int>> _getTouchingParts(
 			std::vector<std::pair<int,int>> const& vpNotTouchingParts, 
 			size_t nbPoints, 
 			bool isClosed
 		) const;
 
-		//--
-		bool _commonGroupExists( 
-			std::set<int> const& sGroup1,
-			std::set<int> const& sGroup2
-		) const;
-
 	};
-}
 }
 }
 

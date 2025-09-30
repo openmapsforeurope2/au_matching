@@ -1,7 +1,9 @@
 //APP
-#include <app/calcul/matching/AuMatchingOp.h>
+#include <app/calcul/AuMatchingOp.h>
 #include <app/params/ThemeParameters.h>
 #include <app/detail/Angle.h>
+#include <app/detail/extractNotTouchingParts.h>
+#include <app/detail/getSubString.h>
 
 //BOOST
 #include <boost/progress.hpp>
@@ -29,18 +31,16 @@ using namespace app::detail;
 
 namespace app{
 namespace calcul{
-namespace matching{
 
 	///
 	///
 	///
     void AuMatchingOp::Compute(
-        std::string workingTable, 
         std::string countryCode, 
         bool verbose) 
     {
         AuMatchingOp auMatchingOp(countryCode, verbose);
-        auMatchingOp._compute(workingTable);
+        auMatchingOp._compute();
     }
 
     ///
@@ -59,13 +59,11 @@ namespace matching{
     AuMatchingOp::~AuMatchingOp()
     {
         delete _mlsToolBoundary;
-        delete _mlsToolLandmask;
         
         _shapeLogger->closeShape( "not_boundaries" );
         _shapeLogger->closeShape( "contact_points" );
         _shapeLogger->closeShape( "not_boundaries_trim" );
         _shapeLogger->closeShape( "not_boundaries_merged" );
-        _shapeLogger->closeShape( "coastline_path_not_found" );
         _shapeLogger->closeShape( "coastline_path" );
         _shapeLogger->closeShape( "boundary_not_touching_coast" );
         _shapeLogger->closeShape( "resulting_polygons" );
@@ -99,19 +97,23 @@ namespace matching{
         std::string const idName = epgParams.getValue( ID ).toString();
         std::string const geomName = epgParams.getValue( GEOM ).toString();
         std::string const countryCodeName = epgParams.getValue( COUNTRY_CODE ).toString();
+        std::string const areaTableName = epgParams.getValue( AREA_TABLE ).toString();
 
         // app parameters
         params::ThemeParameters* themeParameters = params::ThemeParametersS::getInstance();
         std::string const landmaskTableName = themeParameters->getValue( LANDMASK_TABLE ).toString();
+        std::string const noCoastTableName = themeParameters->getValue( NOCOAST_TABLE ).toString();
         
         //--
         _fsBoundary = context->getFeatureStore( epg::TARGET_BOUNDARY );
         //--
         _fsLandmask = context->getDataBaseManager().getFeatureStore(landmaskTableName, idName, geomName);
         //--
-        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter("country LIKE '%"+_countryCode+"%' AND NOT gcms_detruit"), *_fsBoundary );
+        _fsNoCoast = context->getDataBaseManager().getFeatureStore(noCoastTableName, idName, geomName);
         //--
-        _mlsToolLandmask = new epg::tools::MultiLineStringTool( ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'  AND NOT gcms_detruit"), *_fsLandmask );
+        _fsArea = context->getDataBaseManager().getFeatureStore(areaTableName, idName, geomName);
+        //--
+        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ome2::feature::sql::NotDestroyedTools::GetFeatureFilter("country LIKE '%"+_countryCode+"%'"), *_fsBoundary );
         
         //--
         _shapeLogger = epg::log::ShapeLoggerS::getInstance();
@@ -120,7 +122,6 @@ namespace matching{
         _shapeLogger->addShape( "contact_points", epg::log::ShapeLogger::POINT );
         _shapeLogger->addShape( "not_boundaries_trim", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "not_boundaries_merged", epg::log::ShapeLogger::LINESTRING );
-        _shapeLogger->addShape( "coastline_path_not_found", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "coastline_path", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "boundary_not_touching_coast", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "resulting_polygons", epg::log::ShapeLogger::POLYGON );
@@ -140,7 +141,7 @@ namespace matching{
     ///
 	///
 	///
-    void AuMatchingOp::_compute(std::string workingTable) 
+    void AuMatchingOp::_compute() 
     {
 
         epg::Context* context = epg::ContextS::getInstance();
@@ -151,139 +152,24 @@ namespace matching{
         std::string const idName = epgParams.getValue( ID ).toString();
         std::string const geomName = epgParams.getValue( GEOM ).toString();
         std::string const countryCodeName = epgParams.getValue( COUNTRY_CODE ).toString();
-        std::string const boundaryTypeName = epgParams.getValue( BOUNDARY_TYPE ).toString();
-        std::string const typeCostlineValue = epgParams.getValue( TYPE_COASTLINE ).toString();
 
         //app params
         params::ThemeParameters* themeParameters = params::ThemeParametersS::getInstance();
 
-        std::string const typeInlandValue = themeParameters->getValue( BOUNDARY_TYPE_INLAND_WATER_BOUNDARY ).toString();
-        std::string const landCoverTypeName = themeParameters->getValue( LAND_COVER_TYPE ).toString();
-		std::string const landAreaValue = themeParameters->getValue( TYPE_LAND_AREA ).toString();
         double const boundMaxDist = themeParameters->getValue( AU_BOUNDARY_MAX_DIST ).toDouble();
         double const boundSearchDist = themeParameters->getValue( AU_BOUNDARY_SEARCH_DIST ).toDouble();
         double const boundSnapDist = themeParameters->getValue( AU_BOUNDARY_SNAP_DIST ).toDouble();
-        double const coastMaxDist = themeParameters->getValue( AU_COAST_MAX_DIST ).toDouble();
-        double const coastSearcDist = themeParameters->getValue( AU_COAST_SEARCH_DIST ).toDouble();
-        double const coastSnapDist = themeParameters->getValue( AU_COAST_SNAP_DIST ).toDouble();
         double const segmentMinLength = themeParameters->getValue( AU_SEGMENT_MIN_LENGTH ).toDouble();
 
-        /*
-        *********************************************************************************************
-        ** On Extrait les côtes
-        *********************************************************************************************
-        */
-        ign::geometry::MultiLineString mlsLandmaskCoastPath;
-        // NO DEBUG [1]
-        // ign::feature::FeatureIteratorPtr itCoast = _fsBoundary->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%' AND ("+boundaryTypeName+"::text LIKE '%"+typeCostlineValue+"%' OR "+boundaryTypeName+"::text LIKE '%"+typeInlandValue+"%')"));
-		ign::feature::FeatureIteratorPtr itCoast = ome2::feature::sql::getFeatures(_fsBoundary, ign::feature::FeatureFilter(countryCodeName + " LIKE '%" + _countryCode + "%' AND " + boundaryTypeName + "::text LIKE '%" + typeCostlineValue + "%'"));
-
-		ign::geometry::algorithm::LineMergerOpGeos merger;
-        while (itCoast->hasNext())
-        {
-            ign::feature::Feature const& fCoast = itCoast->next();
-            ign::geometry::LineString const& lsCoast = fCoast.getGeometry().asLineString();
-            std::string icc = fCoast.getAttribute( countryCodeName ).toString();
-            std::string boundType = fCoast.getAttribute( boundaryTypeName ).toString();
-
-            if ( boundType.find("#") != std::string::npos ) {
-                std::vector<std::string> vBoundType;
-                epg::tools::StringTools::Split(boundType, "#", vBoundType);
-
-                std::vector<std::string> vCountry;
-                epg::tools::StringTools::Split(icc, "#", vCountry);
-
-                for ( size_t i = 0 ; i < vCountry.size() ; ++i ) {
-                    if ( i < vCountry.size() && vCountry[i] == _countryCode) {
-                        boundType = vBoundType[i];
-                        break;
-                    }
-                }
-                if(boundType != typeCostlineValue) continue;
-            }
-            merger.add(lsCoast);
-        }
-
-        std::vector< ign::geometry::LineString > vCoastLs = merger.getMergedLineStrings();
-
-        // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
-        _logger->log(epg::log::INFO, "[START] coast path computation: "+epg::tools::TimeTools::getTime());
-        for (size_t i = 0 ; i < vCoastLs.size() ; ++i)
-        {
-            std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolLandmask->getPathAlong(
-                vCoastLs[i].startPoint(),
-                vCoastLs[i].endPoint(),
-                vCoastLs[i],
-                coastMaxDist,
-                coastSearcDist,
-                coastSnapDist
-            );
-
-            if ( !pathFound.first )
-            {
-                ign::feature::Feature feat;
-                feat.setGeometry(vCoastLs[i]);
-                _shapeLogger->writeFeature( "coastline_path_not_found", feat );
-            }
-            else
-            {
-                mlsLandmaskCoastPath.addGeometry(pathFound.second);
-                
-                ign::feature::Feature feat;
-                feat.setGeometry(pathFound.second);
-                _shapeLogger->writeFeature( "coastline_path", feat );
-            }
-        }
-        // NO DEBUG [1]
-
-        // DEBUG [1]
-        // ign::feature::FeatureIteratorPtr itDebug = _fsLandmask->getFeatures(ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
-        // while (itDebug->hasNext())
-        // {
-        //     ign::feature::Feature const& featDebug = itDebug->next();
-        //     ign::geometry::MultiPolygon const& mpDebug = featDebug.getGeometry().asMultiPolygon();
-
-        //     for ( size_t i = 0 ; i < mpDebug.numGeometries() ; ++i) {
-        //         for (size_t j = 0 ; j < mpDebug.polygonN(i).numRings() ; ++j) {
-        //             mlsLandmaskCoastPath.addGeometry(mpDebug.polygonN(i).ringN(j));
-        //         }
-        //     }
-        // }
-        // DEBUG [1]
-
-        _logger->log(epg::log::INFO, "[END] coast path computation: "+epg::tools::TimeTools::getTime());
-
-        /*
-        *********************************************************************************************
-        ** On extrait les parties du landmask qui ne sont pas des cotes
-        *********************************************************************************************
-        */
-        ign::geometry::MultiPolygon mpLandmask;
-		ign::feature::FeatureIteratorPtr itLandmask = ome2::feature::sql::getFeatures(_fsLandmask, ign::feature::FeatureFilter(landCoverTypeName + " = '" + landAreaValue + "' AND " + countryCodeName + " = '" + _countryCode + "'"));
-		while (itLandmask->hasNext())
-        {
-            ign::feature::Feature const& fLandmask = itLandmask->next();
-            ign::geometry::MultiPolygon const& mp = fLandmask.getGeometry().asMultiPolygon();
-            for ( int i = 0 ; i < mp.numGeometries() ; ++i ) {
-                mpLandmask.addGeometry(mp.polygonN(i));
-            }
-        }
-
-        _logger->log(epg::log::INFO, "[START] no coast computation: "+epg::tools::TimeTools::getTime());
-        // NO DEBUG [2]
-        const tools::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new tools::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
-
-        std::vector<std::vector<std::vector<std::pair<int,int>>>> vLandmaskNoCoasts;
-        _extractNotTouchingParts( indexedLandmaskCoasts, mpLandmask, vLandmaskNoCoasts );
-
+        //--
         std::vector<ign::geometry::LineString> vLsLandmaskNoCoasts;
         tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
-        for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) {
-            for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr ) {
-                for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i ) {
-                    vLsLandmaskNoCoasts.push_back( _getSubString(vLandmaskNoCoasts[np][nr][i], mpLandmask.polygonN(np).ringN(nr)) );
-                }
-            }
+
+        ign::feature::FeatureIteratorPtr itNoCoast = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsNoCoast, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
+        while (itNoCoast->hasNext()) {
+             ign::feature::Feature const& fNoCoast = itNoCoast->next();
+             ign::geometry::LineString const& lsNoCoast = fNoCoast.getGeometry().asLineString();
+             vLsLandmaskNoCoasts.push_back(lsNoCoast);
         }
         // a faire dans un deuxième temps car les pointeurs sur les éléments de vecteur peuvent être modifiés en cas de réallocation
         int numGroup = 0;
@@ -292,28 +178,8 @@ namespace matching{
             indexedLandmaskNoCoasts->addGeometry(&vLsLandmaskNoCoasts[i], group);
         }
 
-        for ( int i = 0 ; i < vLsLandmaskNoCoasts.size() ; ++i )
-        {
-            ign::feature::Feature feature;
-            feature.setGeometry( vLsLandmaskNoCoasts[i] );
-            _shapeLogger->writeFeature( "boundary_not_touching_coast", feature );
-        }
-        // NO DEBUG [2]
-
-        // DEBUG [2]
-        // tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
-        // indexedLandmaskNoCoasts->addGeometry(&mpLandmask);
-        // DEBUG [2]
-
-        _logger->log(epg::log::INFO, "[END] no coast computation: "+epg::tools::TimeTools::getTime());
-
-        /*
-        *********************************************************************************************
-        ** 
-        *********************************************************************************************
-        */
         // on indexe les contours frontière fermés 
-        ign::feature::FeatureIteratorPtr itBoundary = ome2::feature::sql::getFeatures(_fsBoundary, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
+        ign::feature::FeatureIteratorPtr itBoundary = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsBoundary, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger2;
         while (itBoundary->hasNext()) {
             ign::feature::Feature const& fBoundary = itBoundary->next();
@@ -332,21 +198,34 @@ namespace matching{
         }
 
         // Go through objects intersecting the boundary
-        ign::feature::sql::FeatureStorePostgis* fsAu = context->getDataBaseManager().getFeatureStore(workingTable, idName, geomName);
-        ign::feature::FeatureIteratorPtr itAu = ome2::feature::sql::getFeatures(fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
-		//ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter(countryCodeName + " = '" + _countryCode + "'"));
-        // ign::feature::FeatureIteratorPtr itAu = fsAu->getFeatures(ign::feature::FeatureFilter("inspireid in ('40655405-8e6f-40dd-8673-07c2379b06a8')"));
+        ign::feature::FeatureIteratorPtr itArea = ome2::feature::sql::NotDestroyedTools::GetFeatures( *_fsArea, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode+"'"));
 
         //patience
-        int numFeatures = ome2::feature::sql::numFeatures( *fsAu, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode + "'"));
-        boost::progress_display display( numFeatures , std::cout, "[ au_matching  % complete ]\n") ;        
+        int numFeatures = ome2::feature::sql::NotDestroyedTools::NumFeatures( *_fsArea, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode + "'"));
+        boost::progress_display display( numFeatures , std::cout, "[ au_matching % complete ]\n") ;        
 
-        while (itAu->hasNext())
+        while (itArea->hasNext())
         {
-            ign::feature::Feature fAu = itAu->next();
+            ++display;
+
+            ign::feature::Feature fAu = itArea->next();
             ign::geometry::MultiPolygon const& mpAu = fAu.getGeometry().asMultiPolygon();
             ign::geometry::algorithm::PolygonBuilderV1 polyBuilder;
             std::set< size_t > sAddedClosedBoundary;
+
+            //DEBUG
+            bool test = false;
+            if (fAu.getId() == "36fa7df4-2be5-4d5b-bb06-6471eabf7827" ) {
+                test = true;
+            }
+            if (fAu.getId() == "a3289cce-915b-4cba-9e94-56f9248ded78" ) {
+                test = true;
+            }
+            if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
+                test = true;
+            }
+            if ( !test )
+                continue;
 
             if (_verbose) _logger->log(epg::log::DEBUG,fAu.getId());
 
@@ -362,7 +241,7 @@ namespace matching{
                     // on extrait les partis de l'AU qui ne sont pas des frontieres
                     std::vector<std::pair<int,int>> vpNotTouchingParts;
                     std::vector<int> vTouchingPoints;
-                    _extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
+                    detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
 
                     // on gere les boucles
                     if (vpNotTouchingParts.empty()) {
@@ -407,7 +286,7 @@ namespace matching{
 
                     std::vector<ign::geometry::LineString> vLsNotTouchingParts;
                     for ( int i = 0 ; i < vpNotTouchingParts.size() ; ++i ) {
-                        vLsNotTouchingParts.push_back(_getSubString(vpNotTouchingParts[i], ringWithContactPoints));
+                        vLsNotTouchingParts.push_back(detail::getSubString(vpNotTouchingParts[i], ringWithContactPoints));
                     }
 
                     // c est un contour fermé qui ne touche pas les frontières
@@ -496,7 +375,7 @@ namespace matching{
 
                     std::vector<ign::geometry::LineString> vLsTouchingParts;
                     for ( int i = 0 ; i < vpTouchingParts.size() ; ++i ) {
-                        vLsTouchingParts.push_back(_getSubString(vpTouchingParts[i], ringWithContactPoints));
+                        vLsTouchingParts.push_back(detail::getSubString(vpTouchingParts[i], ringWithContactPoints));
                     }
 
                     ign::geometry::LineString newRing;
@@ -563,7 +442,7 @@ namespace matching{
                 fAu.setGeometry(newGeometry);
                 if ( !newGeometry.isEmpty() )
                 {
-                    fsAu->modifyFeature(fAu);
+                    _fsArea->modifyFeature(fAu);
                 } else {
                     _logger->log(epg::log::ERROR, "MultiPolygon is empty [id] " + fAu.getId());
                 }
@@ -574,11 +453,9 @@ namespace matching{
                 }
                 _shapeLogger->writeFeature( "resulting_polygons", fAu );
             }
-            ++display;
         }
 
         delete indexedLandmaskNoCoasts;
-        delete indexedLandmaskCoasts;
         for (size_t i = 0 ; i < vMergedBoundaryIndexedLs.size() ; ++i) {
             delete vMergedBoundaryIndexedLs[i];
         }
@@ -816,168 +693,8 @@ namespace matching{
     };
 
     ///
-	///
-	///
-    ign::geometry::LineString AuMatchingOp::_getSubString(
-        std::pair<int, int> pStartEnd, 
-        const ign::geometry::LineString & lsRef) const
-    {
-        if (pStartEnd.first == 0 && pStartEnd.second == lsRef.numPoints()-1) return lsRef;
-
-        ign::geometry::LineString subLs;
-
-        bool isRing = lsRef.isClosed();
-        int nbPoints = isRing ? lsRef.numPoints()-1 : lsRef.numPoints();
-
-        int current = pStartEnd.first;
-        int end = (pStartEnd.second == nbPoints-1) ? 0 : pStartEnd.second+1;
-        do
-        {
-            int next = (current == nbPoints-1) ? 0 : current+1;
-
-            subLs.addPoint(lsRef.pointN(current));
-
-            current = next;
-        } while ( current != end );
-
-        return subLs;
-    }
-
-    ///
-	///
-	///
-    void AuMatchingOp::_extractNotTouchingParts(
-        const tools::SegmentIndexedGeometryInterface* refGeom,
-        const ign::geometry::LineString & ls, 
-        std::vector<std::pair<int,int>> & vNotTouchingParts,
-        std::vector<int>* vTouchingPoints) const
-    {
-        bool isRing = ls.isClosed();
-        int nbSegments = ls.numSegments();
-        int nbPoints = ls.numPoints();
-
-        std::vector < bool > vIsTouchingPoints(nbPoints, false);
-        std::vector < std::set<int> > vGroup(nbPoints, std::set<int>());
-        for ( int k = 0 ; k < nbPoints ; ++k ) {
-            std::pair<double, std::set<int>> distGroup = refGeom->distance( ls.pointN(k), 0.1 );
-            if ( distGroup.first < 0 ) {
-                continue;
-            }
-            vIsTouchingPoints[k] = true;
-            vGroup[k] = distGroup.second;
-        }
-
-        int notTouchingFirstSegment = -1;
-        bool bNothingIsTouching = true;
-        bool previousSegmentIsTouching = !isRing ? false : vIsTouchingPoints[nbSegments-1] && vIsTouchingPoints[nbSegments] && _commonGroupExists(vGroup[nbSegments-1], vGroup[nbSegments]) ;
-        std::vector < bool > vTouchingSegments(nbSegments, false);
-        for ( int currentSegment = 0 ; currentSegment < nbSegments ; ++currentSegment )
-        {
-            bool currentSegmentIsTouching = vIsTouchingPoints[currentSegment] && vIsTouchingPoints[currentSegment+1] && _commonGroupExists(vGroup[currentSegment], vGroup[currentSegment+1]);
-
-            if (currentSegmentIsTouching)
-            {
-                vTouchingSegments[currentSegment] = true;
-                bNothingIsTouching = false;
-            } else if ( !previousSegmentIsTouching ) {
-                if ( vIsTouchingPoints[currentSegment] ) {
-                    if (vTouchingPoints != 0) vTouchingPoints->push_back(currentSegment);
-                }
-            } else if (notTouchingFirstSegment < 0) {
-                notTouchingFirstSegment = currentSegment;
-            }
-            previousSegmentIsTouching = vTouchingSegments[currentSegment];
-        }
-
-        if (bNothingIsTouching) {
-            vNotTouchingParts.push_back(std::make_pair(0, nbSegments));
-            return;
-        }
-
-        if (notTouchingFirstSegment >= 0) {
-            int currentSegment = !isRing ? 0 : notTouchingFirstSegment;
-            notTouchingFirstSegment = -1;
-            int end = currentSegment;
-            do
-            {
-                int next = (currentSegment == nbSegments-1) ? 0 : currentSegment+1;
-
-                if ( vTouchingSegments[currentSegment] || (!isRing && next == 0) ) {
-                    if ( notTouchingFirstSegment >= 0 )
-                    {
-                        vNotTouchingParts.push_back(std::make_pair(notTouchingFirstSegment, currentSegment));
-                        notTouchingFirstSegment = -1;
-                    }
-                } else {
-                    if ( notTouchingFirstSegment < 0 )
-                    {
-                        notTouchingFirstSegment = currentSegment;
-                    }
-                }
-                currentSegment = next;
-            } while ( currentSegment != end );
-        }
-    };
-
     ///
     ///
-    ///
-    bool AuMatchingOp::_commonGroupExists( std::set<int> const& sGroup1, std::set<int> const& sGroup2 ) const 
-    {
-        if (sGroup1.empty() && sGroup2.empty()) return true;
-
-        for ( std::set<int>::const_iterator sit1 = sGroup1.begin() ; sit1 != sGroup1.end() ; ++sit1 ) {
-            if( sGroup2.find(*sit1) != sGroup2.end() ) return true;
-        }
-        return false;
-    }
-
-    ///
-	///
-	///
-    void AuMatchingOp::_extractNotTouchingParts(
-        const tools::SegmentIndexedGeometryInterface* refGeom,
-        const ign::geometry::Polygon & p, 
-        std::vector<std::vector<std::pair<int,int>>> & vNotTouchingParts,
-        std::vector<std::vector<int>>* vTouchingPoints) const
-    {
-        for (int i = 0 ; i < p.numRings() ; ++i)
-        {
-            vNotTouchingParts.push_back(std::vector<std::pair<int,int>>());
-            std::vector<int>* vTouchingPoints_ = 0;
-            if (vTouchingPoints)
-            {
-                vTouchingPoints->push_back(std::vector<int>());
-                vTouchingPoints_ =  &vTouchingPoints->back();
-            }
-            _extractNotTouchingParts(refGeom, p.ringN(i), vNotTouchingParts.back(), vTouchingPoints_);
-        }
-    };
-
-    ///
-	///
-	///
-    void AuMatchingOp::_extractNotTouchingParts(
-        const tools::SegmentIndexedGeometryInterface* refGeom,
-        const ign::geometry::MultiPolygon & mp, 
-        std::vector<std::vector<std::vector<std::pair<int,int>>>> & vNotTouchingParts,
-        std::vector<std::vector<std::vector<int>>>* vTouchingPoints) const
-    {
-        for (int i = 0 ; i < mp.numGeometries() ; ++i)
-        {
-            vNotTouchingParts.push_back(std::vector<std::vector<std::pair<int,int>>>());
-            std::vector<std::vector<int>>* vTouchingPoints_ = 0;
-            if (vTouchingPoints)
-            {
-                vTouchingPoints->push_back(std::vector<std::vector<int>>());
-                vTouchingPoints_ =  &vTouchingPoints->back();
-            }
-            _extractNotTouchingParts(refGeom, mp.polygonN(i), vNotTouchingParts.back(), vTouchingPoints_);
-        }
-    };
-
-
-
     std::vector<std::pair<int,int>> AuMatchingOp::_getTouchingParts(
         std::vector<std::pair<int,int>> const& vpNotTouchingParts, 
         size_t nbPoints, 
@@ -1008,6 +725,5 @@ namespace matching{
 
         return vpTouchingParts;
     }
-}
 }
 }

@@ -12,7 +12,7 @@
 
 //APP
 #include <app/params/ThemeParameters.h>
-#include <app/calcul/matching/AuMatchingOp.h>
+#include <app/step/tools/initSteps.h>
 
 
 namespace po = boost::program_options;
@@ -25,17 +25,24 @@ int main(int argc, char *argv[])
     std::string     logDirectory = "";
     std::string     epgParametersFile = "";
     std::string     themeParametersFile = "";
-    std::string     auTable = "";
+    std::string     stepCode = "";
     std::string     countryCode = "";
     bool            verbose = true;
+
+    epg::step::StepSuite< app::params::ThemeParametersS > stepSuite;
+    app::step::tools::initSteps(stepSuite);
+
+    std::ostringstream OperatorDetail;
+	OperatorDetail << "set step :" << std::endl
+		<< stepSuite.toString();
 
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
         ("c" , po::value< std::string >(&epgParametersFile)     , "conf file" )
-        ("t" , po::value< std::string >(&auTable)               , "table" )
         ("cc" , po::value< std::string >(&countryCode)          , "country code" )
     ;
+    stepCode = stepSuite.getStepsRange();
 
     //main log
     std::string     logFileName = "log.txt";
@@ -84,19 +91,23 @@ int main(int argc, char *argv[])
         themeParametersFile = context->getConfigParameters().getValue( THEME_PARAMETER_FILE ).toString();
 		app::params::ThemeParameters* themeParameters = app::params::ThemeParametersS::getInstance();
         epg::params::tools::loadParams( *themeParameters, themeParametersFile, countryCode );
+        if ( themeParameters->getValue(COAST_TABLE).toString() == "" )
+            themeParameters->setParameter(COAST_TABLE, ign::data::String(themeParameters->getValue(AREA_TABLE_INIT).toString() + themeParameters->getValue(COAST_TABLE_SUFFIX).toString()));
+        if ( themeParameters->getValue(NOCOAST_TABLE).toString() == "" ) 
+            themeParameters->setParameter(NOCOAST_TABLE, ign::data::String(themeParameters->getValue(AREA_TABLE_INIT).toString() + themeParameters->getValue(NOCOAST_TABLE_SUFFIX).toString()));
 
         //info de connection db
         context->loadEpgParameters( themeParameters->getValue(DB_CONF_FILE).toString() );
         
         //set BDD search path
-        ome2::utils::setTableName(auTable);
+        ome2::utils::setTableName<app::params::ThemeParametersS>(AREA_TABLE_INIT);
         ome2::utils::setTableName<app::params::ThemeParametersS>(LANDMASK_TABLE);
         ome2::utils::setTableName<epg::params::EpgParametersS>(TARGET_BOUNDARY_TABLE);
 
         logger->log(epg::log::INFO, "[START AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
         //lancement du traitement
-        app::calcul::matching::AuMatchingOp::Compute(auTable, countryCode, verbose);
+		stepSuite.run(stepCode, verbose);
 
 		logger->log(epg::log::INFO, "[END AU-MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
