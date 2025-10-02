@@ -187,8 +187,10 @@ namespace calcul{
             {
                 //DEBUG
                 _logger->log(epg::log::DEBUG, "add coast");
+                _logger->log(epg::log::DEBUG, pathFound.second.startPoint().toString());
+                _logger->log(epg::log::DEBUG, pathFound.second.endPoint().toString());
 
-                ign::feature::Feature feat;
+                ign::feature::Feature feat = _fsCoast->newFeature();
                 feat.setGeometry(pathFound.second);
                 _fsCoast->createFeature( feat );
             }
