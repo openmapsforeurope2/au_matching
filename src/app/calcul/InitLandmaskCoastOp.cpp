@@ -130,6 +130,9 @@ namespace calcul{
             std::string icc = fCoast.getAttribute( countryCodeName ).toString();
             std::string boundType = fCoast.getAttribute( boundaryTypeName ).toString();
 
+            //DEBUG
+            _logger->log(epg::log::DEBUG, fCoast.getId());
+
             if ( boundType.find("#") != std::string::npos ) {
                 std::vector<std::string> vBoundType;
                 epg::tools::StringTools::Split(boundType, "#", vBoundType);
@@ -150,9 +153,18 @@ namespace calcul{
 
         std::vector< ign::geometry::LineString > vCoastLs = merger.getMergedLineStrings();
 
+        //DEBUG
+        if(vCoastLs.size() == 0) {
+            _logger->log(epg::log::DEBUG, "no coast!!");
+        }
+
         // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
         for (size_t i = 0 ; i < vCoastLs.size() ; ++i)
         {
+            //DEBUG
+            _logger->log(epg::log::DEBUG, vCoastLs[i].startPoint().toString());
+            _logger->log(epg::log::DEBUG, vCoastLs[i].endPoint().toString());
+
             std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolLandmask->getPathAlong(
                 vCoastLs[i].startPoint(),
                 vCoastLs[i].endPoint(),
@@ -164,12 +176,18 @@ namespace calcul{
 
             if ( !pathFound.first )
             {
+                //DEBUG
+                _logger->log(epg::log::DEBUG, "path not found");
+
                 ign::feature::Feature feat;
                 feat.setGeometry(vCoastLs[i]);
                 _shapeLogger->writeFeature( "coastline_path_not_found", feat );
             }
             else
             {
+                //DEBUG
+                _logger->log(epg::log::DEBUG, "add coast");
+
                 ign::feature::Feature feat;
                 feat.setGeometry(pathFound.second);
                 _fsCoast->createFeature( feat );
