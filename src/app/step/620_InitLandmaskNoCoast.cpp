@@ -26,10 +26,10 @@ namespace app {
 			app::params::ThemeParameters* themeParameters = app::params::ThemeParametersS::getInstance();
 			std::string countryCodeW = themeParameters->getParameter(COUNTRY_CODE_W).getValue().toString();
 
-			//init table
+			// init table
 			epg::params::EpgParameters const& epgParams = epg::ContextS::getInstance()->getEpgParameters();
 			std::string areaTableName = epgParams.getParameter(AREA_TABLE).getValue().toString();
-			utils::createCoastTable(areaTableName);
+			utils::createNoCoastTable(areaTableName);
 
 			app::calcul::InitLandmaskNoCoastOp::Compute(countryCodeW, verbose);
 

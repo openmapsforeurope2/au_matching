@@ -131,7 +131,7 @@ namespace calcul{
         for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) {
             for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr ) {
                 for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i ) {
-                    ign::feature::Feature fNoCoast;
+                    ign::feature::Feature fNoCoast = _fsNoCoast->newFeature();
                     fNoCoast.setGeometry(detail::getSubString(vLandmaskNoCoasts[np][nr][i], mpLandmask.polygonN(np).ringN(nr)));
                     _fsNoCoast->createFeature(fNoCoast);
                 }
