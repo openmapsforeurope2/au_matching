@@ -6,7 +6,7 @@
         "request": "launch",
         "program": "/usr/local/src/au_matching/bin/au_matchingd",
         "cwd": "/usr/local/src/au_matching",
-        "args": ["--c", "/usr/local/src/au_matching/config/epg_parameters.ini", "--cc", "fr"],
+        "args": ["--c", "/usr/local/src/au_matching/config/epg_parameters.ini", "--cc", "fr", "--sp", "630"],
         "stopAtEntry": true,
         "environment": [{ "name": "config", "value": "Debug" }],
         "externalConsole": true,

@@ -215,10 +215,10 @@ namespace calcul{
 
             //DEBUG
             bool test = false;
-            if (fAu.getId() == "36fa7df4-2be5-4d5b-bb06-6471eabf7827" ) {
+            if (fAu.getId() == "a3289cce-915b-4cba-9e94-56f9248ded78" ) {
                 test = true;
             }
-            if (fAu.getId() == "a3289cce-915b-4cba-9e94-56f9248ded78" ) {
+            if (fAu.getId() == "36fa7df4-2be5-4d5b-bb06-6471eabf7827" ) {
                 test = true;
             }
             if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
@@ -234,6 +234,11 @@ namespace calcul{
             {
                 ign::geometry::Polygon const& pAu = mpAu.polygonN(i);
 
+                //DEBUG
+                if( pAu.intersects(ign::geometry::Point(3370715.4,2326862.6))) {
+                    bool t = true;
+                }
+
                 for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
                 {
                     ign::geometry::LineString const& ring = pAu.ringN(j);
@@ -242,6 +247,10 @@ namespace calcul{
                     std::vector<std::pair<int,int>> vpNotTouchingParts;
                     std::vector<int> vTouchingPoints;
                     detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
+
+                    //debug
+                    ign::geometry::Point p1 = ring[vpNotTouchingParts.front().first];
+                    ign::geometry::Point p2 = ring[vpNotTouchingParts.front().second];
 
                     // on gere les boucles
                     if (vpNotTouchingParts.empty()) {

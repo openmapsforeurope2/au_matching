@@ -39,8 +39,9 @@ int main(int argc, char *argv[])
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
-        ("c" , po::value< std::string >(&epgParametersFile)     , "conf file" )
-        ("cc" , po::value< std::string >(&countryCode)          , "country code" )
+        ("c", po::value< std::string >(&epgParametersFile)     , "conf file" )
+        ("cc", po::value< std::string >(&countryCode)          , "country code" )
+        ("sp", po::value< std::string >(&stepCode), OperatorDetail.str().c_str())
     ;
     stepCode = stepSuite.getStepsRange();
 
@@ -100,6 +101,7 @@ int main(int argc, char *argv[])
         context->loadEpgParameters( themeParameters->getValue(DB_CONF_FILE).toString() );
         
         //set BDD search path
+        context->getDataBaseManager().setSearchPath(themeParameters->getValue(WORKING_SCHEMA).toString());
         ome2::utils::setTableName<app::params::ThemeParametersS>(AREA_TABLE_INIT);
         ome2::utils::setTableName<app::params::ThemeParametersS>(LANDMASK_TABLE);
         ome2::utils::setTableName<epg::params::EpgParametersS>(TARGET_BOUNDARY_TABLE);

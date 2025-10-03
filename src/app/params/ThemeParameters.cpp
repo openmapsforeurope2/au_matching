@@ -16,6 +16,7 @@ namespace params{
 	ThemeParameters::ThemeParameters()
 	{
 		_initParameter( DB_CONF_FILE, "DB_CONF_FILE" );
+		_initParameter( WORKING_SCHEMA, "WORKING_SCHEMA" );
 		_initParameter( BOUNDARY_TYPE_INLAND_WATER_BOUNDARY, "BOUNDARY_TYPE_INLAND_WATER_BOUNDARY" );
 		_initParameter( AREA_TABLE_INIT, "AREA_TABLE_INIT" );
 		_initParameter( LANDMASK_TABLE, "LANDMASK_TABLE" );

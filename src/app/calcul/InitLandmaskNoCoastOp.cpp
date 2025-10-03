@@ -69,10 +69,13 @@ namespace calcul{
         // app parameters
         params::ThemeParameters* themeParameters = params::ThemeParametersS::getInstance();
         std::string const landmaskTableName = themeParameters->getValue( LANDMASK_TABLE ).toString();
+        std::string const coastTableName = themeParameters->getValue( COAST_TABLE ).toString();
         std::string const nocoastTableName = themeParameters->getValue( NOCOAST_TABLE ).toString();
         
         //--
         _fsLandmask = context->getDataBaseManager().getFeatureStore(landmaskTableName, idName, geomName);
+        //--
+        _fsCoast = context->getDataBaseManager().getFeatureStore(coastTableName, idName, geomName);
         //--
         _fsNoCoast = context->getDataBaseManager().getFeatureStore(nocoastTableName, idName, geomName);
         
@@ -133,6 +136,7 @@ namespace calcul{
                 for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i ) {
                     ign::feature::Feature fNoCoast = _fsNoCoast->newFeature();
                     fNoCoast.setGeometry(detail::getSubString(vLandmaskNoCoasts[np][nr][i], mpLandmask.polygonN(np).ringN(nr)));
+                    fNoCoast.setAttribute(countryCodeName,ign::data::String(_countryCode));
                     _fsNoCoast->createFeature(fNoCoast);
                 }
             }

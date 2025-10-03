@@ -192,6 +192,7 @@ namespace calcul{
 
                 ign::feature::Feature feat = _fsCoast->newFeature();
                 feat.setGeometry(pathFound.second);
+                feat.setAttribute(countryCodeName,ign::data::String(_countryCode));
                 _fsCoast->createFeature( feat );
             }
         }
