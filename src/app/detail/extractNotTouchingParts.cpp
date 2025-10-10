@@ -21,6 +21,21 @@ namespace detail{
         std::vector < bool > vIsTouchingPoints(nbPoints, false);
         std::vector < std::set<int> > vGroup(nbPoints, std::set<int>());
         for ( int k = 0 ; k < nbPoints ; ++k ) {
+            //DEBUG
+            // ign::geometry::Point const& pDebug = ls.pointN(k);
+            // if( pDebug.distance(ign::geometry::Point(3368958.44,2323138.63)) < 0.2 ) {
+            //     bool test =true;
+            // };
+            // if( pDebug.distance(ign::geometry::Point(3368963.45,2323132.65)) < 0.2 ) {
+            //     bool test =true;
+            // };
+            // if( pDebug.distance(ign::geometry::Point(3368758.91,2323094.37)) < 0.2 ) {
+            //     bool test =true;
+            // };
+            // if( pDebug.distance(ign::geometry::Point(3368739.94,2323105.48)) < 0.2 ) {
+            //     bool test =true;
+            // };
+            
             std::pair<double, std::set<int>> distGroup = refGeom->distance( ls.pointN(k), 0.1 );
             if ( distGroup.first < 0 ) {
                 continue;

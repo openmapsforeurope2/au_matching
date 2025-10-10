@@ -18,7 +18,7 @@ namespace utils{
         std::string const countryCodeName = context->getEpgParameters().getValue(COUNTRY_CODE).toString();
 
         std::string const coastTableName = themeParameters->getValue(COAST_TABLE).toString();
-        if (!context->getDataBaseManager().tableExists(coastTableName)) {
+        {
             std::ostringstream ss;
             ss << "DROP TABLE IF EXISTS " << coastTableName << " ;";
 
@@ -45,7 +45,7 @@ namespace utils{
         std::string const countryCodeName = context->getEpgParameters().getValue(COUNTRY_CODE).toString();
 
         std::string const nocoastTableName = themeParameters->getValue(NOCOAST_TABLE).toString();
-        if (!context->getDataBaseManager().tableExists(nocoastTableName)) {
+        {
             std::ostringstream ss;
             ss << "DROP TABLE IF EXISTS " << nocoastTableName << " ;";
 

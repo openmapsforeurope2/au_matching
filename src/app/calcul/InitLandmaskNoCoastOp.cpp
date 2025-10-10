@@ -3,6 +3,7 @@
 #include <app/params/ThemeParameters.h>
 #include <app/detail/extractNotTouchingParts.h>
 #include <app/detail/getSubString.h>
+#include <app/detail/refining.h>
 
 //BOOST
 #include <boost/progress.hpp>
@@ -93,7 +94,7 @@ namespace calcul{
 
         //epg params
         epg::params::EpgParameters const& epgParams = context->getEpgParameters();
-
+        
         std::string const idName = epgParams.getValue( ID ).toString();
         std::string const geomName = epgParams.getValue( GEOM ).toString();
         std::string const countryCodeName = epgParams.getValue( COUNTRY_CODE ).toString();
@@ -125,15 +126,31 @@ namespace calcul{
              mlsLandmaskCoastPath.addGeometry(lsCoast);
         }
 
+        // verifier que les cotes ont leurs extremités qui correspondent à des points intermédiaires du landmask 
+        // (le calcul du chemin réalisé à l'étape précédente peut démarré/finir à l'intérieur d'un segment)
+        _logger->log(epg::log::INFO, "[START] refining landmask : "+epg::tools::TimeTools::getTime());
+        detail::refineAreaWithLsEndings(mlsLandmaskCoastPath, mpLandmask);
+        _logger->log(epg::log::INFO, "[END] refining landmask : "+epg::tools::TimeTools::getTime());
+
         //--
+        _logger->log(epg::log::INFO, "[START] extracting nocoast landmask parts : "+epg::tools::TimeTools::getTime());
         const tools::SegmentIndexedGeometryInterface* indexedLandmaskCoasts = new tools::SegmentIndexedGeometry( &mlsLandmaskCoastPath );
 
         std::vector<std::vector<std::vector<std::pair<int,int>>>> vLandmaskNoCoasts;
         detail::extractNotTouchingParts( indexedLandmaskCoasts, mpLandmask, vLandmaskNoCoasts );
+        _logger->log(epg::log::INFO, "[END] extracting nocoast landmask parts : "+epg::tools::TimeTools::getTime());
 
+        //patience
+        size_t numCoast = 0;
+        for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) 
+            for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr )
+                numCoast += vLandmaskNoCoasts[np][nr].size();
+        boost::progress_display display( numCoast , std::cout, "[ compute landmask coast parts % complete ]\n") ;
+
+        //--
         for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) {
             for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr ) {
-                for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i ) {
+                for ( int i = 0 ; i < vLandmaskNoCoasts[np][nr].size() ; ++i, ++display ) {
                     ign::feature::Feature fNoCoast = _fsNoCoast->newFeature();
                     fNoCoast.setGeometry(detail::getSubString(vLandmaskNoCoasts[np][nr][i], mpLandmask.polygonN(np).ringN(nr)));
                     fNoCoast.setAttribute(countryCodeName,ign::data::String(_countryCode));

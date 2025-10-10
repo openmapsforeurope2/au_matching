@@ -108,7 +108,8 @@ namespace calcul{
 			epg::tools::MultiLineStringTool* mlsTool, 
 			const ign::geometry::Point & pt,
 			double angle,
-			double searchDistance
+			double boundSearchDistance,
+        	double vertexSearchDistance
 		) const;
 
 		//--
@@ -116,7 +117,8 @@ namespace calcul{
 			epg::tools::MultiLineStringTool* mlsTool, 
 			std::vector<ign::geometry::LineString> & vLs,
 			const std::vector<std::pair<double, double>> & vGeomFeatures,
-			double searchDistance
+			double searchDistance,
+			double vertexSnapDist
 		) const;
 
 		//--

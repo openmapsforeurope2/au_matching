@@ -83,12 +83,11 @@ namespace calcul{
         _fsLandmask = context->getDataBaseManager().getFeatureStore(landmaskTableName, idName, geomName);
         //--
         _fsCoast = context->getDataBaseManager().getFeatureStore(coastTableName, idName, geomName);
-        
-        _mlsToolLandmask = new epg::tools::MultiLineStringTool( ome2::feature::sql::NotDestroyedTools::GetFeatureFilter(countryCodeName+" = '"+_countryCode+"'"), *_fsLandmask );
+        //--
+        _mlsToolLandmask = new epg::tools::MultiLineStringTool( ome2::feature::sql::NotDestroyedTools::GetFeatureFilter(countryCodeName+" = '"+_countryCode+"'", _fsLandmask), *_fsLandmask );
         
         //--
         _shapeLogger = epg::log::ShapeLoggerS::getInstance();
-        _shapeLogger->setDataDirectory(context->getLogDirectory());
         _shapeLogger->addShape( "coastline_path_not_found", epg::log::ShapeLogger::LINESTRING );
 
         //--
@@ -158,8 +157,11 @@ namespace calcul{
             _logger->log(epg::log::DEBUG, "no coast!!");
         }
 
+        //patience
+        boost::progress_display display( vCoastLs.size() , std::cout, "[ compute landmask coast parts % complete ]\n") ;
+
         // calculer tous les chemins sur le Landmask en prenant pour source et target les extrémités des costlines
-        for (size_t i = 0 ; i < vCoastLs.size() ; ++i)
+        for (size_t i = 0 ; i < vCoastLs.size() ; ++i, ++display)
         {
             //DEBUG
             _logger->log(epg::log::DEBUG, vCoastLs[i].startPoint().toString());

@@ -4,6 +4,7 @@
 #include <app/detail/Angle.h>
 #include <app/detail/extractNotTouchingParts.h>
 #include <app/detail/getSubString.h>
+#include <app/detail/refining.h>
 
 //BOOST
 #include <boost/progress.hpp>
@@ -74,7 +75,6 @@ namespace calcul{
         _shapeLogger->closeShape( "boucle" );
         _shapeLogger->closeShape( "projected_point_on_sharp" );
         _shapeLogger->closeShape( "deleted_segments" );
-        _shapeLogger->closeShape( "debug_segments" );
 
         epg::log::ShapeLoggerS::kill();
     }
@@ -98,6 +98,8 @@ namespace calcul{
         std::string const geomName = epgParams.getValue( GEOM ).toString();
         std::string const countryCodeName = epgParams.getValue( COUNTRY_CODE ).toString();
         std::string const areaTableName = epgParams.getValue( AREA_TABLE ).toString();
+        std::string const boundaryTypeName = epgParams.getValue( BOUNDARY_TYPE ).toString();
+        std::string const typeCostlineValue = epgParams.getValue( TYPE_COASTLINE ).toString();
 
         // app parameters
         params::ThemeParameters* themeParameters = params::ThemeParametersS::getInstance();
@@ -113,11 +115,10 @@ namespace calcul{
         //--
         _fsArea = context->getDataBaseManager().getFeatureStore(areaTableName, idName, geomName);
         //--
-        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ome2::feature::sql::NotDestroyedTools::GetFeatureFilter("country LIKE '%"+_countryCode+"%'"), *_fsBoundary );
+        _mlsToolBoundary = new epg::tools::MultiLineStringTool( ome2::feature::sql::NotDestroyedTools::GetFeatureFilter("country LIKE '%"+_countryCode+"%' AND "+boundaryTypeName+"::text NOT LIKE '%"+typeCostlineValue+"%'", _fsBoundary), *_fsBoundary );
         
         //--
         _shapeLogger = epg::log::ShapeLoggerS::getInstance();
-        _shapeLogger->setDataDirectory(context->getLogDirectory());
         _shapeLogger->addShape( "not_boundaries", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "contact_points", epg::log::ShapeLogger::POINT );
         _shapeLogger->addShape( "not_boundaries_trim", epg::log::ShapeLogger::LINESTRING );
@@ -132,7 +133,6 @@ namespace calcul{
         _shapeLogger->addShape( "boucle", epg::log::ShapeLogger::LINESTRING );
         _shapeLogger->addShape( "projected_point_on_sharp", epg::log::ShapeLogger::POINT );
         _shapeLogger->addShape( "deleted_segments", epg::log::ShapeLogger::POINT );
-        _shapeLogger->addShape( "debug_segments", epg::log::ShapeLogger::LINESTRING );
 
         //--
         _logger->log(epg::log::INFO, "[END] initialization: "+epg::tools::TimeTools::getTime());
@@ -162,20 +162,20 @@ namespace calcul{
         double const segmentMinLength = themeParameters->getValue( AU_SEGMENT_MIN_LENGTH ).toDouble();
 
         //--
-        std::vector<ign::geometry::LineString> vLsLandmaskNoCoasts;
+        ign::geometry::MultiLineString mLsLandmaskNoCoasts;
         tools::SegmentIndexedGeometryCollection* indexedLandmaskNoCoasts = new tools::SegmentIndexedGeometryCollection();
 
         ign::feature::FeatureIteratorPtr itNoCoast = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsNoCoast, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         while (itNoCoast->hasNext()) {
              ign::feature::Feature const& fNoCoast = itNoCoast->next();
              ign::geometry::LineString const& lsNoCoast = fNoCoast.getGeometry().asLineString();
-             vLsLandmaskNoCoasts.push_back(lsNoCoast);
+             mLsLandmaskNoCoasts.addGeometry(lsNoCoast);
         }
         // a faire dans un deuxième temps car les pointeurs sur les éléments de vecteur peuvent être modifiés en cas de réallocation
         int numGroup = 0;
-        for (size_t i = 0 ; i < vLsLandmaskNoCoasts.size() ; ++i) {
-            int group = vLsLandmaskNoCoasts[i].isClosed() ? numGroup++ : -1;
-            indexedLandmaskNoCoasts->addGeometry(&vLsLandmaskNoCoasts[i], group);
+        for (size_t i = 0 ; i < mLsLandmaskNoCoasts.numGeometries() ; ++i) {
+            int group = mLsLandmaskNoCoasts.lineStringN(i).isClosed() ? numGroup++ : -1;
+            indexedLandmaskNoCoasts->addGeometry(&mLsLandmaskNoCoasts.lineStringN(i), group);
         }
 
         // on indexe les contours frontière fermés 
@@ -202,55 +202,66 @@ namespace calcul{
 
         //patience
         int numFeatures = ome2::feature::sql::NotDestroyedTools::NumFeatures( *_fsArea, ign::feature::FeatureFilter(countryCodeName+" = '"+_countryCode + "'"));
-        boost::progress_display display( numFeatures , std::cout, "[ au_matching % complete ]\n") ;        
+        boost::progress_display display( numFeatures , std::cout, "[ au_matching % complete ]\n") ;
 
         while (itArea->hasNext())
         {
             ++display;
 
             ign::feature::Feature fAu = itArea->next();
-            ign::geometry::MultiPolygon const& mpAu = fAu.getGeometry().asMultiPolygon();
+            ign::geometry::MultiPolygon mpAu = fAu.getGeometry().asMultiPolygon();
             ign::geometry::algorithm::PolygonBuilderV1 polyBuilder;
             std::set< size_t > sAddedClosedBoundary;
 
+            
+
             //DEBUG
-            bool test = false;
-            if (fAu.getId() == "a3289cce-915b-4cba-9e94-56f9248ded78" ) {
-                test = true;
-            }
-            if (fAu.getId() == "36fa7df4-2be5-4d5b-bb06-6471eabf7827" ) {
-                test = true;
-            }
-            if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
-                test = true;
-            }
-            if ( !test )
-                continue;
+            // 3376289.285,2318766.474 
+            // 3457799,2246605
+            // bool test = false;
+            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
+            //     test = true;
+            // }
+            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
+            //     test = true;
+            // }
+            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
+            //     test = true;
+            // }
+            // if (fAu.getId() == "5300ab5a-df6e-4c09-8d05-ae5b7e20290f" ) {
+            //     test = true;
+            // }
+            // if ( !test )
+            //     continue;
 
             if (_verbose) _logger->log(epg::log::DEBUG,fAu.getId());
+
+            detail::refineAreaWithLsEndings(mLsLandmaskNoCoasts, mpAu);
 
             bool bIsModified = false;
             for ( int i = 0 ; i < mpAu.numGeometries() ; ++i )
             {
-                ign::geometry::Polygon const& pAu = mpAu.polygonN(i);
+                ign::geometry::Polygon & pAu = mpAu.polygonN(i);
 
                 //DEBUG
-                if( pAu.intersects(ign::geometry::Point(3370715.4,2326862.6))) {
-                    bool t = true;
-                }
+                // if( pAu.intersects(ign::geometry::Point(3758303.1,2173207.6))) {
+                //     bool t = true;
+                // }
 
                 for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
                 {
-                    ign::geometry::LineString const& ring = pAu.ringN(j);
+                    ign::geometry::LineString & ring = pAu.ringN(j);
 
                     // on extrait les partis de l'AU qui ne sont pas des frontieres
                     std::vector<std::pair<int,int>> vpNotTouchingParts;
                     std::vector<int> vTouchingPoints;
                     detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
 
-                    //debug
-                    ign::geometry::Point p1 = ring[vpNotTouchingParts.front().first];
-                    ign::geometry::Point p2 = ring[vpNotTouchingParts.front().second];
+                    //DEBUG
+                    // if (!vpNotTouchingParts.empty()) {
+                    //     ign::geometry::Point p1 = ring[vpNotTouchingParts.front().first];
+                    //     ign::geometry::Point p2 = ring[vpNotTouchingParts.front().second];
+                    // }
 
                     // on gere les boucles
                     if (vpNotTouchingParts.empty()) {
@@ -330,10 +341,22 @@ namespace calcul{
 
                         ign::geometry::MultiLineString mls;
                         _mlsToolBoundary->getLocal(vLsNotTouchingParts[i].getEnvelope(), mls);
+
                         lsSplitter.addCuttingGeometry(mls);
 
                         vpStartEnd.push_back(std::make_pair(vLsNotTouchingParts[i].startPoint(), vLsNotTouchingParts[i].endPoint()));
+
+                        //DEBUG
+                        // int nb1 = vLsNotTouchingParts[i].numPoints();
+                        // ign::geometry::Point pt1_s = vLsNotTouchingParts[i].startPoint();
+                        // ign::geometry::Point pt1_e = vLsNotTouchingParts[i].endPoint();
+
                         vLsNotTouchingParts[i] = lsSplitter.truncAtEnds();
+
+                        //DEBUG
+                        // int nb2 = vLsNotTouchingParts[i].numPoints();
+                        // ign::geometry::Point pt2_s = vLsNotTouchingParts[i].startPoint();
+                        // ign::geometry::Point pt2_e = vLsNotTouchingParts[i].endPoint();
                     }
 
                     // on supprime les petits segments aux extremites qui ont etes tronquees
@@ -370,7 +393,7 @@ namespace calcul{
 
                     // on identifie les similarité geometrique landmask/boundary et on remplace les 
                     // extremites des vLsNotTouchingParts si un candidat est trouve
-                    _findAngles(_mlsToolBoundary, vLsNotTouchingParts, vGeomFeatures, boundSearchDist);
+                    _findAngles(_mlsToolBoundary, vLsNotTouchingParts, vGeomFeatures, boundSearchDist, boundSnapDist);
 
                     // on reconstitue le nouveau contour en concatenant les parties ne touchant pas 
                     // la frontiere et les parties touchant la frontieres projetees sur la frontiere cible
@@ -488,8 +511,8 @@ namespace calcul{
 	///
     double AuMatchingOp::_getAngle(
         tools::SegmentIndexedGeometryCollection* indexedGeom, 
-        const ign::geometry::Point & pt ) const 
-    {
+        const ign::geometry::Point & pt
+    ) const {
         std::vector<ign::geometry::LineString> vSegments;
         ign::geometry::Envelope bbox = pt.getEnvelope().expandBy( 1e-5 );
         ign::geometry::Polygon bboxGeom = bbox.toPolygon();
@@ -500,8 +523,7 @@ namespace calcul{
             ign::geometry::Point const& endPoint2 = bboxGeom.intersects(vSegments.back().startPoint())? vSegments.back().endPoint() : vSegments.back().startPoint();
 
             double angle = epg::tools::geometry::angle(endPoint1.toVec2d()-pt.toVec2d(), endPoint2.toVec2d()-pt.toVec2d());
-            //DEBUG
-            double angleTest = abs(angle-M_PI);
+
             if (abs(angle-M_PI)<0.174532925 /*10 degres*/) return 0;
             return angle;
         }
@@ -516,8 +538,8 @@ namespace calcul{
         size_t startIndex,
         const ign::geometry::Point & refPoint,
         double angle,
-        double searchDistance) const 
-    {
+        double searchDistance
+    ) const {
         std::pair<int, double>  newIndex1 = _findIndex(ls, startIndex, refPoint, angle, searchDistance, true);
         std::pair<int, double>  newIndex2 = _findIndex(ls, --startIndex, refPoint, angle, searchDistance, false);
         if ( newIndex1.first < 0 && newIndex2.first < 0 ) return -1;
@@ -530,10 +552,10 @@ namespace calcul{
     double AuMatchingOp::_getScore(
         double refAngle, 
         double angle, 
-        double distance) const 
-    {
+        double distance
+    ) const {
         double deltaAngle = abs(refAngle-angle);
-        double angleScore = 0;
+        double angleScore = -1;
         if ( deltaAngle < 0.174532925 ) // 10
             angleScore = 10;
         else if ( deltaAngle < 0.261799388 ) // 15
@@ -544,11 +566,9 @@ namespace calcul{
             angleScore = 2;
         else if ( deltaAngle < 1.047197551 ) // 60
             angleScore = 1;
-        else 
-            angleScore = -1;
 
         double distScore = 1/(1+distance);
-        double test2 = 1/exp(distance);
+        // double test2 = 1/exp(distance);
 
         return angleScore*distScore;
     };
@@ -562,12 +582,12 @@ namespace calcul{
         const ign::geometry::Point & refPoint,
         double refAngle,
         double searchDistance, 
-        bool positiveDirection ) const 
-    {
+        bool positiveDirection 
+    ) const {
         double distance = ls.pointN(startIndex).distance(refPoint);
         size_t index = startIndex;
         size_t bestIndex = -1;
-        double bestScore = -1;
+        double bestScore = 0;
         while ( distance <= searchDistance && index > 0 && index < ls.numPoints()-1) {
             double angle = epg::tools::geometry::angle(
                 ls.pointN(index-1).toVec2d()-ls.pointN(index).toVec2d(),
@@ -592,14 +612,15 @@ namespace calcul{
         epg::tools::MultiLineStringTool* mlsTool, 
         const ign::geometry::Point & pt,
         double angle,
-        double searchDistance
+        double boundSearchDistance,
+        double vertexSearchDistance
         ) const
     {					
-        std::pair< bool, ign::geometry::Point > foundProjection = mlsTool->project( pt, searchDistance);
+        std::pair< bool, ign::geometry::Point > foundProjection = mlsTool->project( pt, boundSearchDistance);
         if (!foundProjection.first) return std::make_pair(false, ign::geometry::Point());
 
         ign::geometry::MultiLineString mls;
-        mlsTool->getLocal( pt.getEnvelope().expandBy(searchDistance), mls);
+        mlsTool->getLocal( pt.getEnvelope().expandBy(boundSearchDistance), mls);
 
         std::vector<ign::geometry::LineString> vMergedLs = ign::geometry::algorithm::LineMergerOpGeos::MergeLineStrings(mls);
         for ( size_t i = 0 ; i < vMergedLs.size() ; ++i ) {
@@ -616,7 +637,7 @@ namespace calcul{
                 }
                 if ( indexPoint < 0 ) break;
 
-                int newIndex = _findIndex(vMergedLs[i], indexPoint, foundProjection.second, angle, searchDistance);
+                int newIndex = _findIndex(vMergedLs[i], indexPoint, foundProjection.second, angle, vertexSearchDistance);
 
                 if ( newIndex < 0 ) break;
 
@@ -637,10 +658,9 @@ namespace calcul{
         epg::tools::MultiLineStringTool* mlsTool, 
         std::vector<ign::geometry::LineString> & vLs,
         const std::vector<std::pair<double, double>> & vGeomFeatures,
-        double searchDistance
-        ) const
-    {
-        double snapDistance = 2.;
+        double searchDistance,
+        double vertexSnapDist
+    ) const {
         for ( size_t i = 0 ; i < vLs.size() ; ++i ) {
             // on projete les points sur la NotTouchingPart et on coupe
             epg::tools::geometry::LineStringSplitter lsSplitter( vLs[i], 1e-5 );
@@ -649,20 +669,20 @@ namespace calcul{
             std::pair<bool, ign::geometry::Point> foundPointEnd = std::make_pair(false, ign::geometry::Point());
 
             if ( vGeomFeatures[i].first != 0 ) {
-                foundPointStart = _findCandidate(mlsTool, vLs[i].startPoint(), vGeomFeatures[i].first, searchDistance);
+                foundPointStart = _findCandidate(mlsTool, vLs[i].startPoint(), vGeomFeatures[i].first, searchDistance, vertexSnapDist);
                 if (foundPointStart.first) {
                     ign::geometry::Point projectedPoint;
-                    bool found = epg::tools::geometry::project( vLs[i], foundPointStart.second, projectedPoint, snapDistance);
+                    bool found = epg::tools::geometry::project( vLs[i], foundPointStart.second, projectedPoint, vertexSnapDist);
                     if ( !found ) projectedPoint = foundPointStart.second;
 
                     lsSplitter.addCuttingGeometry(projectedPoint);
                 }
             }
             if ( vGeomFeatures[i].second != 0 ) {
-                foundPointEnd = _findCandidate(mlsTool, vLs[i].endPoint(), vGeomFeatures[i].second, searchDistance);
+                foundPointEnd = _findCandidate(mlsTool, vLs[i].endPoint(), vGeomFeatures[i].second, searchDistance, vertexSnapDist);
                 if (foundPointEnd.first) {
                     ign::geometry::Point projectedPoint;
-                    bool found = epg::tools::geometry::project( vLs[i], foundPointEnd.second, projectedPoint, snapDistance);
+                    bool found = epg::tools::geometry::project( vLs[i], foundPointEnd.second, projectedPoint, vertexSnapDist);
                     if ( !found ) projectedPoint = foundPointEnd.second;
 
                     lsSplitter.addCuttingGeometry(projectedPoint);;
@@ -682,8 +702,8 @@ namespace calcul{
         ign::geometry::LineString & ls, 
         const std::vector<int> & vTouchingPoints,
         double searchDistance,
-        double snapDistOnVertex) const
-    {
+        double snapDistOnVertex
+    ) const {
         if (vTouchingPoints.empty() ) return;
 
         for ( int i = 0 ; i < vTouchingPoints.size() ; ++i )
