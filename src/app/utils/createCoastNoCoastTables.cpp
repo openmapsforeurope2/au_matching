@@ -9,7 +9,7 @@
 namespace app{
 namespace utils{
     //--
-    void createCoastTable(std::string const& areaTableName) {
+    void createCoastTable() {
         epg::Context* context = epg::ContextS::getInstance();
         app::params::ThemeParameters* themeParameters = app::params::ThemeParametersS::getInstance();
 
@@ -36,7 +36,7 @@ namespace utils{
     }
 
     //--
-    void createNoCoastTable(std::string const& areaTableName) {
+    void createNoCoastTable() {
         epg::Context* context = epg::ContextS::getInstance();
         app::params::ThemeParameters* themeParameters = app::params::ThemeParametersS::getInstance();
 

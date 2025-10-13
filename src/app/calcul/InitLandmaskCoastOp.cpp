@@ -49,8 +49,6 @@ namespace calcul{
         delete _mlsToolLandmask;
         
         _shapeLogger->closeShape( "coastline_path_not_found" );
-
-        epg::log::ShapeLoggerS::kill();
     }
 
     ///

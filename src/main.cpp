@@ -132,8 +132,9 @@ int main(int argc, char *argv[])
     logFile << "[END] " << epg::tools::TimeTools::getTime() << std::endl;
 
     epg::ContextS::kill();
-    epg::log::EpgLoggerS::kill();;
-    app::params::ThemeParametersS::kill();;
+    epg::log::EpgLoggerS::kill();
+    epg::log::ShapeLoggerS::kill();
+    app::params::ThemeParametersS::kill();
     
     logFile.close();
 
