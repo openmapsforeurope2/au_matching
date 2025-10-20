@@ -145,7 +145,7 @@ namespace calcul{
         for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) 
             for ( int nr = 0 ; nr < vLandmaskNoCoasts[np].size() ; ++nr )
                 numCoast += vLandmaskNoCoasts[np][nr].size();
-        boost::progress_display display( numCoast , std::cout, "[ compute landmask coast parts % complete ]\n") ;
+        boost::progress_display display( numCoast , std::cout, "[ compute landmask no coast parts % complete ]\n") ;
 
         //--
         for ( int np = 0 ; np < vLandmaskNoCoasts.size() ; ++np ) {
