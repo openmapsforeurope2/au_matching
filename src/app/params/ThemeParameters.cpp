@@ -19,6 +19,8 @@ namespace params{
 		_initParameter( WORKING_SCHEMA, "WORKING_SCHEMA" );
 		_initParameter( BOUNDARY_TYPE_INLAND_WATER_BOUNDARY, "BOUNDARY_TYPE_INLAND_WATER_BOUNDARY" );
 		_initParameter( AREA_TABLE_INIT, "AREA_TABLE_INIT" );
+		_initParameter( AREA_TABLE_INIT_BASE, "AREA_TABLE_INIT_BASE" );
+		_initParameter( LOWEST_LEVEL, "LOWEST_LEVEL" );
 		_initParameter( LANDMASK_TABLE, "LANDMASK_TABLE" );
 		_initParameter( LAND_COVER_TYPE, "LAND_COVER_TYPE" );
 		_initParameter( TYPE_LAND_AREA, "TYPE_LAND_AREA" );

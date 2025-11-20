@@ -16,10 +16,17 @@ Ce calcul est réalisé uniquement sur l'échelon administratif le plus grand de
 
 ## Fonctionnement
 
-Le traitement et lancé pour un pays.
-La première étape consiste à déterminé quelles sont les portions des limites territoriales du pays qui ne sont pas des côtes (en utilisant la table des frontières internationales).
-A partir de cette référence on peut déterminer quelles sont les portions des contours des unités administratives qui sont sur la frontière.
-Les contours des polygones des unités administratives sont reconstitués en agrégeant les portions de contour qui ne sont pas sur la frontière avec de nouvelles portions de contour frontalières calculées par projection sur la frontière internationale.
+Le programme ne manipule pas directement les données de production. Les données à traiter, localisées autour de la frontière, sont extraites dans une table de travail. A l'issu du traitement les données dérivées sont injectées dans la table source en remplacement des données initiales.
+
+Le processus de mise en cohérence est décomposé en plusieurs étapes. Un numéro est attribué à chaque étape. Une table de travail préfixée de ce numéro est délivrée en sortie de chaque étape. Chaque étape prend en données d'entrées les tables de travail générées lors d'étapes antérieures.
+
+Voici l'ensemble des étapes constitutives du processus de raccordement:
+
+**610** - détermine quelles sont les portions des limites territoriales du pays qui ne sont pas des côtes (en utilisant la table des frontières internationales).
+<br>
+**620** - à partir de la référence précedemment établie, on détermine quelles sont les portions des contours des unités administratives qui sont sur la frontière.
+<br>
+**630** - les contours des polygones des unités administratives sont reconstitués en agrégeant les portions de contour qui ne sont pas sur la frontière avec de nouvelles portions de contour frontalières calculées par projection sur la frontière internationale.
 
 
 ## Configuration
@@ -39,12 +46,18 @@ L'outil s'utilise en ligne de commande.
 Paramètres :
 
 * c [obligatoire] : chemin vers le fichier de configuration
-* t [obligatoire] : nom de la table de travail
-* cc [obligatoire] : code pays simple
+* s [obligatoire] : suffix de la table de travail
+* sp [optionnel] : étape(s) à executer (exemples: 610 ; 610,620 ; 610-630)
+* argument libre [obligatoire] : code pays
 
 <br>
 
-Exemples d'appel:
+Exemple d'appel pour lancer l'ensemble des étapes:
 ~~~
-bin/au_matching --c path/to/config/epg_parmaters.ini --t work.administrative_unit_6_w --cc fr
+bin/au_matching --c path/to/config/epg_parmaters.ini --s 20251113 fr
+~~~
+
+Exemple d'appel pour ne lancer qu'une seule étape :
+~~~
+bin/au_matching --c path/to/config/epg_parmaters.ini --s 20251113 --sp 620 fr
 ~~~

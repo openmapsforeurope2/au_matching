@@ -9,6 +9,7 @@
 
 //OME2
 #include <ome2/utils/setTableName.h>
+#include <ome2/utils/getEnvStr.h>
 
 //APP
 #include <app/params/ThemeParameters.h>
@@ -25,6 +26,7 @@ int main(int argc, char *argv[])
     std::string     logDirectory = "";
     std::string     epgParametersFile = "";
     std::string     themeParametersFile = "";
+    std::string     suffix = "";
     std::string     stepCode = "";
     std::string     countryCode = "";
     bool            verbose = true;
@@ -40,7 +42,7 @@ int main(int argc, char *argv[])
     desc.add_options()
         ("help", "produce help message")
         ("c", po::value< std::string >(&epgParametersFile)     , "conf file" )
-        ("cc", po::value< std::string >(&countryCode)          , "country code" )
+        ("s", po::value< std::string >(&suffix)                , "working table suffix" )
         ("sp", po::value< std::string >(&stepCode), OperatorDetail.str().c_str())
     ;
     stepCode = stepSuite.getStepsRange();
@@ -53,16 +55,28 @@ int main(int argc, char *argv[])
 
     int returnValue = 0;
     try{
+        po::parsed_options parsed = po::command_line_parser(argc, argv)
+                                    .options(desc)
+                                    .allow_unregistered()
+                                    .run();
 
         po::variables_map vm;
-        int style = po::command_line_style::default_style & ~po::command_line_style::allow_guessing;
-        po::store( po::parse_command_line( argc, argv, desc, style ), vm );
-        po::notify( vm );    
+        po::store( parsed, vm );
+        po::notify( vm );
 
         if ( vm.count( "help" ) ) {
             std::cout << desc << std::endl;
             return 1;
         }
+
+        // Récupérer les arguments libres (non reconnus)
+        std::vector<std::string> countries = po::collect_unrecognized(parsed.options, po::include_positional);
+
+        if ( countries.size() != 1 ) {
+            std::string mError = "spécifier un et un seul pays en argument";
+            IGN_THROW_EXCEPTION(mError);
+        }
+        countryCode = countries.front();
 
         //parametres EPG
 		context->loadEpgParameters( epgParametersFile );
@@ -99,7 +113,31 @@ int main(int argc, char *argv[])
 
         //info de connection db
         context->loadEpgParameters( themeParameters->getValue(DB_CONF_FILE).toString() );
-        
+        //pour IGN-MUT
+        if( context->getConfigParameters().parameterHasNullValue(HOST) ) 
+            context->getConfigParameters().setParameter(HOST, ign::data::String(ome2::utils::getEnvStr("HOST")));
+        if( context->getConfigParameters().parameterHasNullValue(PORT) ) 
+            context->getConfigParameters().setParameter(PORT, ign::data::String(ome2::utils::getEnvStr("PORT")));
+        if( context->getConfigParameters().parameterHasNullValue(USER) ) 
+            context->getConfigParameters().setParameter(USER, ign::data::String(ome2::utils::getEnvStr("USER")));
+        if( context->getConfigParameters().parameterHasNullValue(PASSWORD) ) 
+            context->getConfigParameters().setParameter(PASSWORD, ign::data::String(ome2::utils::getEnvStr("PASSWORD")));
+        if( context->getConfigParameters().parameterHasNullValue(DATABASE) ) 
+            context->getConfigParameters().setParameter(DATABASE, ign::data::String(ome2::utils::getEnvStr("DATABASE")));
+
+        //table de travail
+        if ( !suffix.empty() ) {
+            std::string tableBaseName = themeParameters->getValue(AREA_TABLE_INIT_BASE).toString();
+            std::string lowestLevel = themeParameters->getValue(LOWEST_LEVEL).toString();
+            std::string levelTemplate = "<LEVEL>";
+            size_t pos = tableBaseName.find(levelTemplate);
+            if (pos != std::string::npos) {
+                tableBaseName.replace(pos, levelTemplate.length(), lowestLevel);
+            }
+            std::string tableName = tableBaseName + "_" + countryCode + "_" + suffix;
+            themeParameters->setParameter(AREA_TABLE_INIT, ign::data::String(tableName));
+        }
+
         //set BDD search path
         context->getDataBaseManager().setSearchPath(themeParameters->getValue(WORKING_SCHEMA).toString());
         ome2::utils::setTableName<app::params::ThemeParametersS>(AREA_TABLE_INIT);

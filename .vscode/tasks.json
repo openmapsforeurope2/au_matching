@@ -4,7 +4,7 @@
         {
             "label": "build package",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./build-unix-package.sh",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_base ./build-unix-package.sh",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -28,7 +28,7 @@
         {
             "label": "build release",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./build-unix-release.sh",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_base ./build-unix-release.sh",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -52,7 +52,7 @@
         {
             "label": "build debug",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./build-unix-debug.sh",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_base ./build-unix-debug.sh",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -89,14 +89,14 @@
         {
             "label": "run the code",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching ./bin/au_matching --c /usr/local/src/au_matching/config/epg_parameters.ini --cc fr --sp 610-630",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_base ./bin/au_matching --c /usr/local/src/au_matching/config/epg_parameters.ini --cc fr --sp 610-630",
             "group": "build",
             "problemMatcher": []
         },
         {
             "label": "prepare to debug",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching --name au_matching_container -it au_matching ",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching --name au_matching_base_container -it au_matching_base ",
             "group": "build",
             "problemMatcher": []
         }
