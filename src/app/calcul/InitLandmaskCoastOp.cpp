@@ -122,7 +122,7 @@ namespace calcul{
 		ign::geometry::algorithm::LineMergerOpGeos merger;
         while (itCoast->hasNext())
         {
-            ign::feature::Feature const& fCoast = itCoast->next();
+            ign::feature::Feature fCoast = itCoast->next();
             ign::geometry::LineString const& lsCoast = fCoast.getGeometry().asLineString();
             std::string icc = fCoast.getAttribute( countryCodeName ).toString();
             std::string boundType = fCoast.getAttribute( boundaryTypeName ).toString();

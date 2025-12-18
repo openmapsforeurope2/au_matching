@@ -110,7 +110,7 @@ namespace calcul{
 		ign::feature::FeatureIteratorPtr itLandmask = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsLandmask, ign::feature::FeatureFilter(landCoverTypeName + " = '" + landAreaValue + "' AND " + countryCodeName + " = '" + _countryCode + "'"));
 		while (itLandmask->hasNext())
         {
-            ign::feature::Feature const& fLandmask = itLandmask->next();
+            ign::feature::Feature fLandmask = itLandmask->next();
             ign::geometry::MultiPolygon const& mp = fLandmask.getGeometry().asMultiPolygon();
             for ( int i = 0 ; i < mp.numGeometries() ; ++i ) {
                 mpLandmask.addGeometry(mp.polygonN(i));
@@ -121,7 +121,7 @@ namespace calcul{
         ign::geometry::MultiLineString mlsLandmaskCoastPath;
         ign::feature::FeatureIteratorPtr itCoast = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsCoast, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         while (itCoast->hasNext()) {
-             ign::feature::Feature const& fCoast = itCoast->next();
+             ign::feature::Feature fCoast = itCoast->next();
              ign::geometry::LineString const& lsCoast = fCoast.getGeometry().asLineString();
              mlsLandmaskCoastPath.addGeometry(lsCoast);
         }

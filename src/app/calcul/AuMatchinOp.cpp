@@ -167,7 +167,7 @@ namespace calcul{
 
         ign::feature::FeatureIteratorPtr itNoCoast = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsNoCoast, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         while (itNoCoast->hasNext()) {
-             ign::feature::Feature const& fNoCoast = itNoCoast->next();
+             ign::feature::Feature fNoCoast = itNoCoast->next();
              ign::geometry::LineString const& lsNoCoast = fNoCoast.getGeometry().asLineString();
              mLsLandmaskNoCoasts.addGeometry(lsNoCoast);
         }
@@ -182,7 +182,7 @@ namespace calcul{
         ign::feature::FeatureIteratorPtr itBoundary = ome2::feature::sql::NotDestroyedTools::GetFeatures(*_fsBoundary, ign::feature::FeatureFilter(countryCodeName+" LIKE '%"+_countryCode+"%'"));
         ign::geometry::algorithm::LineMergerOpGeos merger2;
         while (itBoundary->hasNext()) {
-            ign::feature::Feature const& fBoundary = itBoundary->next();
+            ign::feature::Feature fBoundary = itBoundary->next();
             ign::geometry::LineString const& lsBoundary = fBoundary.getGeometry().asLineString();
             merger2.add(lsBoundary);
         }
