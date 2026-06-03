@@ -191,8 +191,8 @@ namespace calcul{
                 _logger->log(epg::log::DEBUG, pathFound.second.endPoint().toString());
 
                 ign::feature::Feature feat = _fsCoast->newFeature();
-                feat.setGeometry(pathFound.second);
-                feat.setAttribute(countryCodeName,ign::data::String(_countryCode));
+                feat.setGeometry( pathFound.second );
+                feat.setAttribute( countryCodeName, ign::data::String(_countryCode) );
                 _fsCoast->createFeature( feat );
             }
         }

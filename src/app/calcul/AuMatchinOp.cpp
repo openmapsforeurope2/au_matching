@@ -213,27 +213,6 @@ namespace calcul{
             ign::geometry::algorithm::PolygonBuilderV1 polyBuilder;
             std::set< size_t > sAddedClosedBoundary;
 
-            
-
-            //DEBUG
-            // 3376289.285,2318766.474 
-            // 3457799,2246605
-            // bool test = false;
-            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
-            //     test = true;
-            // }
-            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
-            //     test = true;
-            // }
-            // if (fAu.getId() == "48043b89-a1d6-404b-823d-b03bd65378ba" ) {
-            //     test = true;
-            // }
-            // if (fAu.getId() == "5300ab5a-df6e-4c09-8d05-ae5b7e20290f" ) {
-            //     test = true;
-            // }
-            // if ( !test )
-            //     continue;
-
             if (_verbose) _logger->log(epg::log::DEBUG,fAu.getId());
 
             detail::refineAreaWithLsEndings(mLsLandmaskNoCoasts, mpAu);
@@ -243,25 +222,14 @@ namespace calcul{
             {
                 ign::geometry::Polygon & pAu = mpAu.polygonN(i);
 
-                //DEBUG
-                // if( pAu.intersects(ign::geometry::Point(3758303.1,2173207.6))) {
-                //     bool t = true;
-                // }
-
                 for ( int j = 0 ; j < pAu.numRings() ; ++j )                                                                                                                                                                                                                                                                              
                 {
                     ign::geometry::LineString & ring = pAu.ringN(j);
 
-                    // on extrait les partis de l'AU qui ne sont pas des frontieres
+                    // on extrait les parties de l'UA qui ne sont pas des frontieres
                     std::vector<std::pair<int,int>> vpNotTouchingParts;
                     std::vector<int> vTouchingPoints;
-                    detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints);
-
-                    //DEBUG
-                    // if (!vpNotTouchingParts.empty()) {
-                    //     ign::geometry::Point p1 = ring[vpNotTouchingParts.front().first];
-                    //     ign::geometry::Point p2 = ring[vpNotTouchingParts.front().second];
-                    // }
+                    detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints );
 
                     // on gere les boucles
                     if (vpNotTouchingParts.empty()) {
@@ -346,17 +314,7 @@ namespace calcul{
 
                         vpStartEnd.push_back(std::make_pair(vLsNotTouchingParts[i].startPoint(), vLsNotTouchingParts[i].endPoint()));
 
-                        //DEBUG
-                        // int nb1 = vLsNotTouchingParts[i].numPoints();
-                        // ign::geometry::Point pt1_s = vLsNotTouchingParts[i].startPoint();
-                        // ign::geometry::Point pt1_e = vLsNotTouchingParts[i].endPoint();
-
                         vLsNotTouchingParts[i] = lsSplitter.truncAtEnds();
-
-                        //DEBUG
-                        // int nb2 = vLsNotTouchingParts[i].numPoints();
-                        // ign::geometry::Point pt2_s = vLsNotTouchingParts[i].startPoint();
-                        // ign::geometry::Point pt2_e = vLsNotTouchingParts[i].endPoint();
                     }
 
                     // on supprime les petits segments aux extremites qui ont etes tronquees
@@ -369,8 +327,6 @@ namespace calcul{
                                 _shapeLogger->writeFeature( "deleted_segments", feature );
 
                                 vLsNotTouchingParts[i].removePointN(1);
-
-                                
                             }
                         }
                         if ( !vLsNotTouchingParts[i].endPoint().equals(vpStartEnd[i].second) && vLsNotTouchingParts[i].numPoints() > 2 ) {
@@ -391,7 +347,7 @@ namespace calcul{
                         _shapeLogger->writeFeature( "not_boundaries_trim", feature );
                     }
 
-                    // on identifie les similarité geometrique landmask/boundary et on remplace les 
+                    // on identifie les similarités geometriques landmask/boundary et on remplace les 
                     // extremites des vLsNotTouchingParts si un candidat est trouve
                     _findAngles(_mlsToolBoundary, vLsNotTouchingParts, vGeomFeatures, boundSearchDist, boundSnapDist);
 
@@ -600,7 +556,7 @@ namespace calcul{
             }
 
             index = index + (positiveDirection ? 1 : -1);
-            distance =ls.pointN(index).distance(refPoint);
+            distance = ls.pointN(index).distance(refPoint);
         }
         return std::make_pair(bestIndex, bestScore);
     };

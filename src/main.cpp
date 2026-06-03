@@ -126,6 +126,9 @@ int main(int argc, char *argv[])
             themeParameters->setParameter(AREA_TABLE_INIT, ign::data::String(tableName));
         }
 
+        //DEBUG
+        context->setVerboseDataBaseManager(true);
+
         //set BDD search path
         context->getDataBaseManager().setSearchPath(themeParameters->getValue(WORKING_SCHEMA).toString());
         ome2::utils::setTableName<app::params::ThemeParametersS>(AREA_TABLE_INIT);
@@ -133,12 +136,12 @@ int main(int argc, char *argv[])
         ome2::utils::setTableName<epg::params::EpgParametersS>(TARGET_BOUNDARY_TABLE);
 
 
-        logger->log(epg::log::INFO, "[START AU MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
+        logger->log(epg::log::INFO, "[ START AU MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
 
         //lancement du traitement
 		stepSuite.run(stepCode, verbose);
 
-		logger->log(epg::log::INFO, "[END AU MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
+		logger->log(epg::log::INFO, "[ END AU MATCHING PROCESS ] " + epg::tools::TimeTools::getTime());
     }
     catch( ign::Exception &e )
     {
