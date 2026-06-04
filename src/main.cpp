@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
     std::string     suffix = "";
     std::string     stepCode = "";
     std::string     countryCode = "";
+    std::string     level = "";
     bool            verbose = true;
 
     epg::step::StepSuite< app::params::ThemeParametersS > stepSuite;
@@ -40,9 +41,11 @@ int main(int argc, char *argv[])
     desc.add_options()
         ("help", "produce help message")
         ("c", po::value< std::string >(&epgParametersFile)     , "conf file" )
+        ("l", po::value< std::string >(&level)                 , "administrative level" )
         ("s", po::value< std::string >(&suffix)                , "working table suffix" )
         ("sp", po::value< std::string >(&stepCode), OperatorDetail.str().c_str())
     ;
+
     stepCode = stepSuite.getStepsRange();
 
     //main log
@@ -116,18 +119,15 @@ int main(int argc, char *argv[])
         //table de travail
         if ( !suffix.empty() ) {
             std::string tableBaseName = themeParameters->getValue(AREA_TABLE_INIT_BASE).toString();
-            std::string lowestLevel = themeParameters->getValue(LOWEST_LEVEL).toString();
+            level = level.empty() ? themeParameters->getValue(LOWEST_LEVEL).toString() : level;
             std::string levelTemplate = "<LEVEL>";
             size_t pos = tableBaseName.find(levelTemplate);
             if (pos != std::string::npos) {
-                tableBaseName.replace(pos, levelTemplate.length(), lowestLevel);
+                tableBaseName.replace(pos, levelTemplate.length(), level);
             }
             std::string tableName = tableBaseName + "_" + countryCode + "_" + suffix;
             themeParameters->setParameter(AREA_TABLE_INIT, ign::data::String(tableName));
         }
-
-        //DEBUG
-        context->setVerboseDataBaseManager(true);
 
         //set BDD search path
         context->getDataBaseManager().setSearchPath(themeParameters->getValue(WORKING_SCHEMA).toString());

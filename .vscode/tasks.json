@@ -58,7 +58,7 @@
         {
             "label": "run the code",
             "type": "shell",
-            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_dev ./bin/au_matching --c /usr/local/src/au_matching/config/epg_parameters.ini --cc fr --sp 610-630",
+            "command": "docker run --privileged -v ${workspaceFolder}:/usr/local/src/au_matching au_matching_dev ./bin/au_matching --c /usr/local/src/au_matching/config/epg_parameters.ini --l 5 --s 20260604 --sp 610-630 fr",
             "group": "build",
             "problemMatcher": []
         },
