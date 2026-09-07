@@ -570,8 +570,7 @@ namespace calcul{
         double angle,
         double boundSearchDistance,
         double vertexSearchDistance
-        ) const
-    {					
+    ) const {					
         std::pair< bool, ign::geometry::Point > foundProjection = mlsTool->project( pt, boundSearchDistance);
         if (!foundProjection.first) return std::make_pair(false, ign::geometry::Point());
 

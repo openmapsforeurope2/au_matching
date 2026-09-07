@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
             if (pos != std::string::npos) {
                 tableBaseName.replace(pos, levelTemplate.length(), level);
             }
-            std::string tableName = tableBaseName + "_" + countryCode + "_" + suffix;
+            std::string tableName = tableBaseName + "_" + suffix;
             themeParameters->setParameter(AREA_TABLE_INIT, ign::data::String(tableName));
         }
 

@@ -54,10 +54,10 @@ Paramètres :
 
 Exemple d'appel pour lancer l'ensemble des étapes:
 ~~~
-bin/au_matching --c path/to/config/epg_parmaters.ini --s 20251113 fr
+bin/au_matching --c path/to/config/epg_parameters.ini --s 20251113 fr
 ~~~
 
 Exemple d'appel pour ne lancer qu'une seule étape :
 ~~~
-bin/au_matching --c path/to/config/epg_parmaters.ini --s 20251113 --sp 620 fr
+bin/au_matching --c path/to/config/epg_parameters.ini --s 20251113 --sp 620 fr
 ~~~
