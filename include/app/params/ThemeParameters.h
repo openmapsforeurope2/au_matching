@@ -10,7 +10,7 @@
 
 
 
-	enum AU_PARAMETERS{
+	enum TH_PARAMETERS{
 		
 		DB_CONF_FILE,
 		WORKING_SCHEMA,
@@ -41,9 +41,9 @@
 namespace app{
 namespace params{
 
-	class ThemeParameters : public epg::params::ParametersT< AU_PARAMETERS >
+	class ThemeParameters : public epg::params::ParametersT< TH_PARAMETERS >
 	{
-		typedef  epg::params::ParametersT< AU_PARAMETERS > Base;
+		typedef  epg::params::ParametersT< TH_PARAMETERS > Base;
 
 		public:
 
