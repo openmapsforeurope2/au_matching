@@ -1,13 +1,3 @@
-## [1.0.0] - 2025-03-24
-### Added
-- Initial release of the project
-
-### Changed
-- NTR
-
-### Fixed
-- NTR
-
 ## [1.1.0] - 2026-09-10
 ### Added
 - Added support for matching administrative units at a user-specified administrative level.
@@ -26,3 +16,13 @@
 - Fixed issues in processing steps 610 and 620.
 - Excluded destroyed objects from the processing.
 - Fixed memory leaks and optimized memory usage following Valgrind analysis.
+
+## [1.0.0] - 2025-03-24
+### Added
+- Initial release of the project
+
+### Changed
+- NTR
+
+### Fixed
+- NTR
