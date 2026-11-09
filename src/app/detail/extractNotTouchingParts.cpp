@@ -12,7 +12,8 @@ namespace detail{
         const tools::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::LineString & ls, 
         std::vector<std::pair<int,int>> & vNotTouchingParts,
-        std::vector<int>* vTouchingPoints
+        std::vector<int>* vTouchingPoints,
+        epg::log::EpgLogger* _logger
     ) {
         bool isRing = ls.isClosed();
         int nbSegments = ls.numSegments();
@@ -41,11 +42,17 @@ namespace detail{
             {
                 vTouchingSegments[currentSegment] = true;
                 bNothingIsTouching = false;
+                //DEBUG
+                if( _logger )
+                    _logger->log(epg::log::DEBUG, "TRUE : "+ ls.pointN(currentSegment).toString() +"    "+ls.pointN(currentSegment+1).toString() + "    " + ign::data::Integer(currentSegment).toString() + " " + ign::data::Integer(currentSegment+1).toString());
             } else if ( !previousSegmentIsTouching ) {
+                _logger->log(epg::log::DEBUG, "FALSE : "+ ls.pointN(currentSegment).toString() +"    "+ls.pointN(currentSegment+1).toString()+ "    " + ign::data::Integer(currentSegment).toString() + " " + ign::data::Integer(currentSegment+1).toString());
                 if ( vIsTouchingPoints[currentSegment] ) {
                     if (vTouchingPoints != 0) vTouchingPoints->push_back(currentSegment);
+                    _logger->log(epg::log::DEBUG, "POINT : "+ ls.pointN(currentSegment).toString()+ "    " + ign::data::Integer(currentSegment).toString());
                 }
             } else if (notTouchingFirstSegment < 0) {
+                _logger->log(epg::log::DEBUG, "FALSE NEW : "+ ls.pointN(currentSegment).toString() +"    "+ls.pointN(currentSegment+1).toString()+ "    " + ign::data::Integer(currentSegment).toString() + " " + ign::data::Integer(currentSegment+1).toString());
                 notTouchingFirstSegment = currentSegment;
             }
             previousSegmentIsTouching = vTouchingSegments[currentSegment];
