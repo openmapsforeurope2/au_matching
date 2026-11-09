@@ -18,6 +18,7 @@ namespace tools{
 	template<  typename StepSuiteType >
 	void initSteps( StepSuiteType& stepSuite )
 	{
+		stepSuite.clear();
 		stepSuite.addStep( epg::step::factoryNew< InitLandmaskCoast >() );
 		stepSuite.addStep( epg::step::factoryNew< InitLandmaskNoCoast >() );
 		stepSuite.addStep( epg::step::factoryNew< AuMatching >() );
