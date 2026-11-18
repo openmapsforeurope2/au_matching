@@ -15,8 +15,7 @@ namespace detail{
         const tools::SegmentIndexedGeometryInterface* refGeom,
         const ign::geometry::LineString & ls, 
         std::vector<std::pair<int,int>> & vNotTouchingParts,
-        std::vector<int>* vTouchingPoints = 0,
-        epg::log::EpgLogger* _logger = 0
+        std::vector<int>* vTouchingPoints = 0
     );
 
     //--

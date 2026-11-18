@@ -16,6 +16,9 @@
 #include <epg/tools/TimeTools.h>
 #include <ome2/feature/sql/NotDestroyedTools.h>
 
+//DEBUG
+#include <ign/geometry/algorithm/OptimizedHausdorffDistanceOp.h>
+
 
 namespace app{
 namespace calcul{
@@ -127,9 +130,6 @@ namespace calcul{
             std::string icc = fCoast.getAttribute( countryCodeName ).toString();
             std::string boundType = fCoast.getAttribute( boundaryTypeName ).toString();
 
-            //DEBUG
-            _logger->log(epg::log::DEBUG, fCoast.getId());
-
             if ( boundType.find("#") != std::string::npos ) {
                 std::vector<std::string> vBoundType;
                 epg::tools::StringTools::Split(boundType, "#", vBoundType);
@@ -162,8 +162,21 @@ namespace calcul{
         for (size_t i = 0 ; i < vCoastLs.size() ; ++i, ++display)
         {
             //DEBUG
+            if (vCoastLs[i].distance(ign::geometry::Point(3434990.918, 2908968.443)) > 10) 
+                continue;
+
+            //DEBUG
             _logger->log(epg::log::DEBUG, vCoastLs[i].startPoint().toString());
             _logger->log(epg::log::DEBUG, vCoastLs[i].endPoint().toString());
+
+            //DEBUG
+            ign::geometry::MultiLineString mlsDebug;
+            _mlsToolLandmask->getLocal( vCoastLs[i].getEnvelope(), mlsDebug);
+            ign::geometry::MultiPoint mpDebug;
+            ign::geometry::algorithm::OptimizedHausdorffDistanceOp::orientedDistance( mlsDebug, vCoastLs[i],mpDebug);
+            _logger->log(epg::log::DEBUG, mpDebug.toString());
+            continue;
+
 
             std::pair< bool, ign::geometry::LineString > pathFound = _mlsToolLandmask->getPathAlong(
                 vCoastLs[i].startPoint(),
@@ -173,7 +186,7 @@ namespace calcul{
                 coastSearcDist,
                 coastSnapDist
             );
-
+            
             if ( !pathFound.first )
             {
                 //DEBUG

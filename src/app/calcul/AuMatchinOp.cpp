@@ -234,9 +234,7 @@ namespace calcul{
                     // on extrait les parties de l'UA qui ne sont pas des frontieres
                     std::vector<std::pair<int,int>> vpNotTouchingParts;
                     std::vector<int> vTouchingPoints;
-                    // detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints );
-                    //DEBUG
-                    detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints, _logger );
+                    detail::extractNotTouchingParts( indexedLandmaskNoCoasts, ring, vpNotTouchingParts, &vTouchingPoints );
 
                     // on gere les boucles
                     if (vpNotTouchingParts.empty()) {
